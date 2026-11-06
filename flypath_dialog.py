@@ -3551,6 +3551,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             self.linesLabel.setText(str(stats['strip_count']))
         self.batteriesLabel.setText(str(stats['battery_count']))
         if orbit and self._mission_type() != 'full':
+            self._front_overlap_pct = result['capture']['side_overlap_ratio'] * 100
             self.frontOverlapLabel.setText(
                 tr('{value:.0f} %', value=result['capture']['side_overlap_ratio'] * 100))
         self._show_hud()

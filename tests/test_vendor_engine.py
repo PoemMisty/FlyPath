@@ -77,10 +77,12 @@ def test_build_includes_generated_engine_without_unrelated_untracked_files():
             # Git reports no engine files: they must be included separately.
             run.return_value.stdout = b"README.md\0metadata.txt\0"
             build_plugin()
-        assert run.call_count == 2
+        assert run.call_count == 3
         assert run.call_args_list[0].args[0] == [
             sys.executable, str(root / "tools" / "vendor_engine.py"),
         ]
+        assert any('update_translations.py' in ' '.join(map(str, call.args[0]))
+                   for call in run.call_args_list)
         run.assert_called_with(
             ["git", "-c", f"safe.directory={root}", "ls-files", "-z"],
             cwd=root, check=True, capture_output=True,

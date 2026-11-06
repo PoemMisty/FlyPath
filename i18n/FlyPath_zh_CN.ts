@@ -2858,8 +2858,8 @@ The flat route can still be previewed, but export is blocked until terrain follo
             <translation>{minutes} 分 {seconds} 秒</translation>
         </message>
         <message>
-            <source>{name} ({count} {missions})</source>
-            <translation>{name}（{count} {missions}）</translation>
+            <source>{name} ({missions})</source>
+            <translation>{name}（{missions}）</translation>
         </message>
         <message>
             <source>{name} copy</source>

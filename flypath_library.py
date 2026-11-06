@@ -432,8 +432,8 @@ class MissionLibrary(QWidget):
                     self.missions.setCurrentItem(item)
             for project_id, group in groups.items():
                 count = group.childCount()
-                group.setText(0, tr('{name} ({count} {missions})',
-                                    name=group.text(0), count=count,
+                group.setText(0, tr('{name} ({missions})',
+                                    name=group.text(0),
                                     missions=trn('{n} mission', '{n} missions', count,
                                                  n=count)))
                 group.setExpanded(project_id in expanded)

@@ -97,6 +97,7 @@ def test_shared_planning_dispatch_and_failure_without_qgis():
         _planning=SimpleNamespace(plan_failed=Mock()),
         _waypoints=[(0, 0)], _missions=[[(0, 0)]], _shot_spacing_m=5)
     widget = SimpleNamespace(value=lambda: 25, currentText=lambda: 'DJI Mini 4 Pro',
+                             currentData=lambda: 'Return to Home',
                              isChecked=lambda: False)
     for name in ('terrainFollowCheck', 'droneModelCombo', 'altitudeSpin', 'speedSpin',
                  'finishActionCombo', 'rcLostActionCombo', 'orbitTiltSpin',
