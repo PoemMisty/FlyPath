@@ -86,6 +86,7 @@ def test_shared_planning_dispatch_and_failure_without_qgis():
     warnings = SimpleNamespace(warning=Mock())
     namespace = {'planning_adapter': adapter, 'QMessageBox': warnings,
                  'registry': SimpleNamespace(get=lambda name: name),
+                 'tr': lambda text, **values: text.format(**values) if values else text,
                  'mission_export': SimpleNamespace(ExportSettings=SimpleNamespace)}
     exec(compile(ast.Module(body=methods, type_ignores=[]), str(ROOT / 'flypath_dialog.py'),
                  'exec'), namespace)
