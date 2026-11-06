@@ -25,6 +25,11 @@ from .flypath_sync import FlypathSyncError
 from .grid_planner import measure_route, measure_survey_area
 from .hardware import registry
 
+if __package__:
+    from .flypath_i18n import tr
+else:
+    from flypath_i18n import tr
+
 try:
     _WaitCursor = Qt.CursorShape.WaitCursor
     _MB_YES = QMessageBox.StandardButton.Yes
@@ -105,9 +110,9 @@ class WebsiteSyncLifecycleMixin:
             unlock_storage()
             token = flypath_sync.load_token()
             if flypath_sync.load_base_url() != origin:
-                raise FlypathSyncError('The FlyPath website changed while connecting. Retry Connect account for the new website.')
+                raise FlypathSyncError(tr('The FlyPath website changed while connecting. Retry Connect account for the new website.'))
         except FlypathSyncError as exc:
-            QMessageBox.warning(parent, 'FlyPath credentials', str(exc))
+            QMessageBox.warning(parent, tr('FlyPath credentials'), str(exc))
             self._update_web_buttons()
             return None
         if token:
@@ -117,21 +122,22 @@ class WebsiteSyncLifecycleMixin:
         except AttributeError:
             password = getattr(QLineEdit, 'Password')
         token, ok = QInputDialog.getText(
-            getattr(self, '_mission_library', None) or self, 'FlyPath Token',
-            'Connect to %s.\n\nChoose Plugin token in this website\'s account menu, generate a '
-            'token,\nand paste it here. QGIS will store it in its encrypted '
-            'authentication vault.\nIf a token expires or is revoked, reconnect '
-            'with a new token;\nyour local plan is kept.\n\nToken:' % origin,
+            getattr(self, '_mission_library', None) or self, tr('FlyPath Token'),
+            tr('Connect to {origin}.\n\nChoose Plugin token in this website\'s account menu, generate a '
+               'token,\nand paste it here. QGIS will store it in its encrypted '
+               'authentication vault.\nIf a token expires or is revoked, reconnect '
+               'with a new token;\nyour local plan is kept.\n\nToken:',
+               origin=origin),
             password)
         token = (token or '').strip()
         if not (ok and token):
             return None
         try:
             if flypath_sync.load_base_url() != origin:
-                raise FlypathSyncError('The FlyPath website changed while entering the token. Nothing was saved. Retry Connect account for the new website.')
+                raise FlypathSyncError(tr('The FlyPath website changed while entering the token. Nothing was saved. Retry Connect account for the new website.'))
             flypath_sync.save_token(token)
         except FlypathSyncError as exc:
-            QMessageBox.warning(parent, 'FlyPath credentials', str(exc))
+            QMessageBox.warning(parent, tr('FlyPath credentials'), str(exc))
             self._update_web_buttons()
             return None
         return token
@@ -162,7 +168,7 @@ class WebsiteSyncLifecycleMixin:
         try:
             if (flypath_sync.load_base_url() != origin or
                     flypath_sync.load_token() != token):
-                raise FlypathSyncError('The FlyPath connection changed before sending. No request was made. Retry with the intended website and account.')
+                raise FlypathSyncError(tr('The FlyPath connection changed before sending. No request was made. Retry with the intended website and account.'))
             thread = QThread()
             call = _WebsiteCall(work, token)
             call.moveToThread(thread)
@@ -189,7 +195,7 @@ class WebsiteSyncLifecycleMixin:
                 try:
                     flypath_sync.save_token('')
                 except FlypathSyncError as storage_error:
-                    QMessageBox.warning(self, 'FlyPath credentials', str(storage_error))
+                    QMessageBox.warning(self, tr('FlyPath credentials'), str(storage_error))
             if exc.status == 409 and raise_conflict:
                 raise
             QMessageBox.warning(self, title, str(exc))
@@ -204,45 +210,46 @@ class WebsiteSyncLifecycleMixin:
         """Save the linked mission, or explicitly create and link a new one."""
         if self._planning.save_requires_regeneration():
             QMessageBox.warning(
-                self, 'Regeneration Required',
-                'The saved route no longer matches the editable settings. Choose '
-                'Preview to regenerate it before saving to FlyPath.')
+                self, tr('Regeneration Required'),
+                tr('The saved route no longer matches the editable settings. Choose '
+                'Preview to regenerate it before saving to FlyPath.'))
             return False
         if not (self._preview_layer_ids and self._missions):
-            QMessageBox.information(self, 'Preview First', 'Preview the mission on the map before saving it to FlyPath.')
+            QMessageBox.information(self, tr('Preview First'), tr('Preview the mission on the map before saving it to FlyPath.'))
             return
         link = self._current_website_link()
         updating = bool(link and not save_as_new)
-        name = link['name'] if link else 'QGIS ' + datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+        name = link['name'] if link else tr('QGIS {time}', time=datetime.datetime.now().strftime('%Y-%m-%d %H:%M'))
         parent = getattr(self, '_mission_library', None) or self
         try:
             base_url = flypath_sync.load_base_url()
         except FlypathSyncError as exc:
-            QMessageBox.warning(parent, 'FlyPath credentials', str(exc))
+            QMessageBox.warning(parent, tr('FlyPath credentials'), str(exc))
             return
         project_id = None
         if not updating:
             from .flypath_library import new_mission_details
             library = self._run_web(
-                'FlyPath projects', lambda token: flypath_sync.list_library(base_url, token))
+                tr('FlyPath projects'),
+                lambda token: flypath_sync.list_library(base_url, token))
             if library is None:
                 return
             details = new_mission_details(
-                parent, name + ' copy' if link else name, library['projects'],
-                project_id=(link or {}).get('project_id'))
+                parent, tr('{name} copy', name=name) if link else name,
+                library['projects'], project_id=(link or {}).get('project_id'))
             if details is None:
                 return
             name, project_id = details
         try:
             payload = self._website_payload(name)
         except FlypathSyncError as exc:
-            QMessageBox.warning(parent, 'Cannot Save Mission', str(exc))
+            QMessageBox.warning(parent, tr('Cannot Save Mission'), str(exc))
             return
         if not updating and project_id is not None:
             payload['project_id'] = project_id
         try:
             result = self._run_web(
-                'Save to FlyPath',
+                tr('Save to FlyPath'),
                 lambda token: flypath_sync.update_mission(base_url, token, link['id'], link['revision'], payload)
                 if updating else flypath_sync.push_mission(base_url, token, payload),
                 raise_conflict=updating)
@@ -255,9 +262,11 @@ class WebsiteSyncLifecycleMixin:
         self._remember_website_mission(result)
         url = flypath_sync.mission_url(result.get('id'), base_url)
         reply = QMessageBox.question(
-            parent, 'Saved to FlyPath',
-            ('Changes saved to "%s".' if updating else 'New mission "%s" saved.')
-            % (result.get('name') or 'Mission') + '\n\nOpen it in your browser?',
+            parent, tr('Saved to FlyPath'),
+            (tr('Changes saved to "{name}".', name=result.get('name') or tr('Mission'))
+             if updating else
+             tr('New mission "{name}" saved.', name=result.get('name') or tr('Mission')))
+            + '\n\n' + tr('Open it in your browser?'),
             _MB_YES | _MB_NO, _MB_YES)
         if reply == _MB_YES:
             QDesktopServices.openUrl(QUrl(url))
@@ -271,8 +280,8 @@ class WebsiteSyncLifecycleMixin:
             return self._on_send_to_website(save_as_new=True)
         if choice == 'reload':
             answer = QMessageBox.question(
-                parent, 'Load Latest Mission',
-                'Discard your local edits and load the latest saved mission?',
+                parent, tr('Load Latest Mission'),
+                tr('Discard your local edits and load the latest saved mission?'),
                 _MB_YES | _MB_NO, _MB_NO)
             if answer == _MB_YES:
                 return self._on_load_from_website(link['id'])
@@ -288,17 +297,18 @@ class WebsiteSyncLifecycleMixin:
         panorama = kind == 'panorama'
         if kind == 'oblique' and self.terrainFollowCheck.isChecked():
             raise FlypathSyncError(
-                'flypath.io does not support Oblique Mapping terrain follow yet. '
-                'Turn off Terrain Follow and regenerate, or export locally.')
+                tr('flypath.io does not support Oblique Mapping terrain follow yet. '
+                   'Turn off Terrain Follow and regenerate, or export locally.'))
         drone = registry.get(self.droneModelCombo.currentText())
         if kind in ('oblique', 'panorama') and drone.category != 'consumer':
-            raise FlypathSyncError('%s website missions require a DJI Fly consumer drone.'
-                                   % kind.capitalize())
+            raise FlypathSyncError(
+                tr('{kind} website missions require a DJI Fly consumer drone.',
+                   kind=tr('Oblique') if kind == 'oblique' else tr('Panorama')))
         if not drone.website_code:
             raise FlypathSyncError(
-                '%s is not one of the drones flypath.io offers, so this mission '
-                'cannot be sent there. Choose another drone, or export a KMZ '
-                'instead.' % drone.name)
+                tr('{drone} is not one of the drones flypath.io offers, so this mission '
+                   'cannot be sent there. Choose another drone, or export a KMZ '
+                   'instead.', drone=drone.name))
         try:
             if orbit:
                 area = [self._orbit_centre] if self._orbit_centre is not None else []
@@ -311,28 +321,30 @@ class WebsiteSyncLifecycleMixin:
                     self._survey_polygon, self._survey_polygon_crs)
         except survey_geometry.MultipartLineError as exc:
             raise FlypathSyncError(
-                'FlyPath stores one corridor centre line, but this one has %d '
-                'separate lines. Send them as separate missions.' % exc.args[0]) from None
+                tr('FlyPath stores one corridor centre line, but this one has {count} '
+                   'separate lines. Send them as separate missions.',
+                   count=exc.args[0])) from None
         if not area:
-            raise FlypathSyncError('This mission has no survey area to send.')
+            raise FlypathSyncError(tr('This mission has no survey area to send.'))
         if not corridor and not orbit and self._planning.request and (not panorama or self._panorama_area()):
             survey_area = self._planning.request.get('survey_area', {})
             if survey_area.get('parts') or survey_area.get('holes'):
                 raise FlypathSyncError(
-                    'FlyPath website sync cannot yet store polygon holes or '
-                    'multiple polygon parts without losing geometry. Export the '
-                    'mission locally instead.')
+                    tr('FlyPath website sync cannot yet store polygon holes or '
+                       'multiple polygon parts without losing geometry. Export the '
+                       'mission locally instead.'))
         # ponytail: full-automatic routes are pushed as flown, one point per
         # photo, while the website reads waypoints as flight-line endpoints in
         # pairs. The area and settings it saves regenerate the route correctly
         # there; if the drawn route on the website matters, push turn points.
         waypoints = list(self._waypoints or [])
-        for label, points in (('survey area', area), ('waypoints', waypoints)):
+        for label, points in ((tr('survey area'), area), (tr('waypoints'), waypoints)):
             if len(points) > flypath_sync.MAX_MISSION_POINTS:
                 raise FlypathSyncError(
-                    'This mission has %d %s; FlyPath accepts at most %d. Use '
-                    'semi-automatic capture, or a smaller area, to send it.'
-                    % (len(points), label, flypath_sync.MAX_MISSION_POINTS))
+                    tr('This mission has {count} {label}; FlyPath accepts at most {limit}. '
+                       'Use semi-automatic capture, or a smaller area, to send it.',
+                       count=len(points), label=label,
+                       limit=flypath_sync.MAX_MISSION_POINTS))
         payload = {
             'name': name,
             'drone_model': drone.website_code,
@@ -360,16 +372,16 @@ class WebsiteSyncLifecycleMixin:
         orbit = kind == 'orbit'
         actions = []
         for label, combo, table in (
-                ('Finish Action', self.finishActionCombo,
+                (tr('Finish Action'), self.finishActionCombo,
                  flypath_sync.WEBSITE_FINISH_ACTIONS),
-                ('RC Lost Action', self.rcLostActionCombo,
+                (tr('RC Lost Action'), self.rcLostActionCombo,
                  flypath_sync.WEBSITE_RC_LOST_ACTIONS)):
-            code = table.get(combo.currentText())
+            code = table.get(combo.currentData() or combo.currentText())
             if code is None:
                 raise FlypathSyncError(
-                    'FlyPath has no website equivalent for %s "%s". Choose '
-                    'another one to send this mission.'
-                    % (label, combo.currentText()))
+                    tr('FlyPath has no website equivalent for {label} "{value}". Choose '
+                       'another one to send this mission.',
+                       label=label, value=combo.currentText()))
             actions.append(code)
         settings = {
             'mapping_style':  self._mission_kind(),
@@ -479,15 +491,15 @@ class WebsiteSyncLifecycleMixin:
 
         self._on_clear_preview(reset_area=False)
         self._clear_stats()
-        self.previewBtn.setText('Preview on Map')
+        self.previewBtn.setText(tr('Preview on Map'))
         if result:
             supported, flights = provenance
             self._apply_planning_result(request, result, flights=flights)
             self._planning.preserve_imported_route(supported=supported)
             if planning_adapter.needs_geometry_update(result):
                 self._planning.require_regeneration()
-                self._set_info('This saved Fast oblique route needs the geometry correction. '
-                               'Choose Regenerate on Map before saving or exporting.')
+                self._set_info(tr('This saved Fast oblique route needs the geometry correction. '
+                               'Choose Regenerate on Map before saving or exporting.'))
         elif legacy:
             route = [(float(lon), float(lat)) for lat, lon in legacy]
             self._waypoints = route
@@ -502,25 +514,25 @@ class WebsiteSyncLifecycleMixin:
             self.linesLabel.setText(str(len(route) // 2))
             if self._mission_kind() == 'orbit':
                 self._planning.require_regeneration()
-                self._set_info('This older orbit route has no verified camera headings. '
-                               'Choose Regenerate on Map before saving or exporting.')
+                self._set_info(tr('This older orbit route has no verified camera headings. '
+                               'Choose Regenerate on Map before saving or exporting.'))
             elif self._mission_type() == 'full':
                 self._planning.require_regeneration()
-                self._set_info('This older Full-auto route has no verified capture '
-                               'actions. Choose Regenerate on Map before saving or exporting.')
+                self._set_info(tr('This older Full-auto route has no verified capture '
+                               'actions. Choose Regenerate on Map before saving or exporting.'))
             else:
-                self._set_info('Saved route and estimates. Editing settings requires '
-                               'regeneration with the installed planning engine.')
+                self._set_info(tr('Saved route and estimates. Editing settings requires '
+                               'regeneration with the installed planning engine.'))
         else:
             self._planning.require_regeneration()
             self.waypointsLabel.setText('0')
-            self._set_info('Preview on Map to generate this mission’s route.')
-            self.previewBtn.setText('Regenerate on Map')
+            self._set_info(tr('Preview on Map to generate this mission’s route.'))
+            self.previewBtn.setText(tr('Regenerate on Map'))
             self._update_web_buttons()
             return
         self._planning.preserve_imported_route()
-        self.previewBtn.setText('Regenerate on Map' if self._planning.regeneration_required
-                                else 'Preview on Map')
+        self.previewBtn.setText(tr('Regenerate on Map') if self._planning.regeneration_required
+                                else tr('Preview on Map'))
         if self.terrainFollowCheck.isChecked():
             self._terrain_failed = True
         self._preview_layer_ids = preview_layers.create(self._missions)
@@ -532,10 +544,10 @@ class WebsiteSyncLifecycleMixin:
         try:
             base_url = flypath_sync.load_base_url()
         except FlypathSyncError as exc:
-            QMessageBox.warning(self, 'FlyPath credentials', str(exc))
+            QMessageBox.warning(self, tr('FlyPath credentials'), str(exc))
             return
         mission = self._run_web(
-            'Load from FlyPath',
+            tr('Load from FlyPath'),
             lambda token: flypath_sync.get_mission(base_url, token,
                                                    mission_id))
         if mission is None:
@@ -543,20 +555,20 @@ class WebsiteSyncLifecycleMixin:
         try:
             adjusted, recovery_note = self._apply_website_mission(mission)
         except FlypathSyncError as exc:
-            QMessageBox.warning(self, 'Cannot Load Mission', str(exc))
+            QMessageBox.warning(self, tr('Cannot Load Mission'), str(exc))
             return
         self._remember_website_mission(mission)
         note = ('\n\n' + recovery_note) if recovery_note else ''
         if adjusted:
-            note += ('\n\nThese settings are outside this plugin\'s own range '
-                    'and were adjusted to the nearest value it can fly:\n  '
-                    + '\n  '.join(adjusted))
+            note += '\n\n' + tr('These settings are outside this plugin\'s own range '
+                                'and were adjusted to the nearest value it can fly:\n  {items}',
+                                items='\n  '.join(adjusted))
         QMessageBox.information(
-            self, 'Loaded from FlyPath',
-            '"%s" is now a local mission in QGIS.\n\nIt is an independent '
-            'working copy linked to FlyPath. Save changes updates this mission; '
-            'Save as new creates a separate mission.%s'
-            % (mission.get('name') or 'Mission', note))
+            self, tr('Loaded from FlyPath'),
+            tr('"{name}" is now a local mission in QGIS.\n\nIt is an independent '
+               'working copy linked to FlyPath. Save changes updates this mission; '
+               'Save as new creates a separate mission.{note}',
+               name=mission.get('name') or tr('Mission'), note=note))
         return True
 
     @staticmethod
@@ -569,7 +581,7 @@ class WebsiteSyncLifecycleMixin:
         the raw value (trimmed) if it cannot be parsed, so display never fails."""
         raw = (updated_at or '').strip()
         if not raw:
-            return 'never saved'
+            return tr('never saved')
         try:
             # fromisoformat rejects a trailing 'Z' before Python 3.11 (QGIS 3), so
             # normalise it; a timestamp with no zone is treated as UTC.
@@ -588,7 +600,7 @@ class WebsiteSyncLifecycleMixin:
                 or self._orbit_tool is not None or self._panorama_tool is not None
                 or (active_layer and active_layer.isEditable())):
             raise FlypathSyncError(
-                'Finish or cancel the current survey drawing or edit before loading a mission.')
+                tr('Finish or cancel the current survey drawing or edit before loading a mission.'))
         prepared = self._prepare_website_mission(mission)
         project = QgsProject.instance()
         canvas = self.iface.mapCanvas()
@@ -741,7 +753,8 @@ class WebsiteSyncLifecycleMixin:
             self._update_web_buttons()
             if isinstance(exc, FlypathSyncError):
                 raise
-            raise FlypathSyncError('The mission could not be loaded: %s' % exc) from exc
+            raise FlypathSyncError(
+                tr('The mission could not be loaded: {error}', error=exc)) from exc
         finally:
             del self._import_preserved_layer_ids
 
@@ -750,16 +763,18 @@ class WebsiteSyncLifecycleMixin:
         flypath_sync.validate_mission(mission)
         settings = mission.get('settings') or {}
         if not isinstance(settings, dict):
-            raise FlypathSyncError('This mission\'s settings could not be read.')
+            raise FlypathSyncError(tr('This mission\'s settings could not be read.'))
         try:
             provenance = planning_adapter.validate_mission_provenance(mission)
         except ValueError as exc:
-            raise FlypathSyncError('The saved route could not be verified: %s' % exc) from None
+            raise FlypathSyncError(
+                tr('The saved route could not be verified: {error}', error=exc)) from None
         style = settings.get('mapping_style', '2d')
         if style not in flypath_sync.SUPPORTED_MAPPING_STYLES:
             raise FlypathSyncError(
-                'This mission is a "%s" survey, which this plugin cannot plan. '
-                'Only 2D, corridor, orbit, oblique and panorama missions can be loaded.' % style)
+                tr('This mission is a "{style}" survey, which this plugin cannot plan. '
+                   'Only 2D, corridor, orbit, oblique and panorama missions can be loaded.',
+                   style=style))
         corridor = style == 'corridor'
         orbit = style == 'orbit'
         panorama = style == 'panorama'
@@ -768,46 +783,48 @@ class WebsiteSyncLifecycleMixin:
                 corridor or settings.get('terrain_follow')
                 or (not orbit and not mission.get('planning_result'))):
             raise FlypathSyncError(
-                'This reversed route cannot be edited by the plugin. Reverse '
-                'route is supported for 2D missions planned by the shared '
-                'engine without terrain follow.')
+                tr('This reversed route cannot be edited by the plugin. Reverse '
+                   'route is supported for 2D missions planned by the shared '
+                   'engine without terrain follow.'))
 
         drone_name = registry.name_for_website_code(mission.get('drone_model'))
         if drone_name is None or drone_name not in registry.names():
             raise FlypathSyncError(
-                'This mission is planned for a drone this plugin does not '
-                'offer, so its settings would not carry over.')
+                tr('This mission is planned for a drone this plugin does not '
+                   'offer, so its settings would not carry over.'))
         if style in ('orbit', 'oblique', 'panorama') and registry.get(drone_name).category != 'consumer':
-            raise FlypathSyncError('Orbit, oblique and panorama missions need a DJI Fly drone.')
+            raise FlypathSyncError(
+                tr('Orbit, oblique and panorama missions need a DJI Fly drone.'))
 
         capture = settings.get('capture_mode', 'semi')
         if capture not in ('semi', 'full'):
             raise FlypathSyncError(
-                'This mission uses a capture mode this plugin does not know '
-                '(%s).' % capture)
+                tr('This mission uses a capture mode this plugin does not know '
+                   '({mode}).', mode=capture))
         finish = flypath_sync.label_for_code(
             flypath_sync.WEBSITE_FINISH_ACTIONS, settings.get('finish_action'))
         rc_lost = flypath_sync.label_for_code(
             flypath_sync.WEBSITE_RC_LOST_ACTIONS, settings.get('rc_lost_action'))
         for label, code, value in (
-                ('finish action', settings.get('finish_action'), finish),
-                ('RC lost action', settings.get('rc_lost_action'), rc_lost)):
+                (tr('finish action'), settings.get('finish_action'), finish),
+                (tr('RC lost action'), settings.get('rc_lost_action'), rc_lost)):
             if code is not None and value is None:
                 raise FlypathSyncError(
-                    'This mission uses a %s this plugin does not offer (%s).'
-                    % (label, code))
+                    tr('This mission uses a {label} this plugin does not offer ({code}).',
+                       label=label, code=code))
 
         points = mission.get('polygon') or []
         needed = 1 if orbit or panorama_points else 2 if corridor else 3
         if len(points) < needed:
+            missing = (tr('centre point') if orbit or panorama_points
+                       else tr('centre line') if corridor else tr('survey area'))
             raise FlypathSyncError(
-                'This mission has no %s yet — draw one on the website first, '
-                'or plan it here.'
-                % ('centre point' if orbit or panorama_points else 'centre line' if corridor else 'survey area'))
+                tr('This mission has no {missing} yet — draw one on the website first, '
+                   'or plan it here.', missing=missing))
         try:
             vertices = [QgsPointXY(float(lon), float(lat)) for lat, lon in points]
         except (TypeError, ValueError):
-            raise FlypathSyncError('This mission\'s survey area could not be read.')
+            raise FlypathSyncError(tr('This mission\'s survey area could not be read.'))
 
         wgs84 = QgsCoordinateReferenceSystem('EPSG:4326')
         geom = (QgsGeometry.fromPointXY(vertices[0]) if orbit
@@ -817,7 +834,7 @@ class WebsiteSyncLifecycleMixin:
         if (geom.isEmpty() or not geom.isGeosValid()
                 or (not orbit and not panorama_points and
                     (geom.length() <= 0 if corridor else geom.area() <= 0))):
-            raise FlypathSyncError('This mission has an invalid survey geometry.')
+            raise FlypathSyncError(tr('This mission has an invalid survey geometry.'))
 
         return settings, provenance, style, drone_name, capture, finish, rc_lost, geom, wgs84
 
@@ -834,9 +851,11 @@ class WebsiteSyncLifecycleMixin:
         # Restore Auto only after loading: intermediate control signals must
         # not optimise the imported heading against the previous survey area.
         self.autoDirectionBtn.setChecked(False)
-        self.missionTypeCombo.setCurrentText(
-            'Panorama' if panorama else 'Orbit (3D Model)' if orbit else 'Corridor Mapping' if corridor
-            else 'Oblique Mapping' if style == 'oblique' else '2D Mapping')
+        kind = ('panorama' if panorama else 'orbit' if orbit else 'corridor' if corridor
+                else 'oblique' if style == 'oblique' else '2d')
+        index = self.missionTypeCombo.findData(kind)
+        if index >= 0:
+            self.missionTypeCombo.setCurrentIndex(index)
         if panorama:
             (self.panoramaAreaRadio if settings.get('panorama_layout', 'points') == 'area'
              else self.panoramaPointsRadio).setChecked(True)
@@ -854,39 +873,43 @@ class WebsiteSyncLifecycleMixin:
             (self.pathCurvedRadio if settings['flight_path'] == 'curved'
              else self.pathStraightRadio).setChecked(True)
         if finish:
-            self.finishActionCombo.setCurrentText(finish)
+            index = self.finishActionCombo.findData(finish)
+            if index >= 0:
+                self.finishActionCombo.setCurrentIndex(index)
         if rc_lost:
-            self.rcLostActionCombo.setCurrentText(rc_lost)
+            index = self.rcLostActionCombo.findData(rc_lost)
+            if index >= 0:
+                self.rcLostActionCombo.setCurrentIndex(index)
 
         # Spin boxes clamp anything outside their own range, so a value the
         # website allows but this plugin does not lands at the nearest one it
         # can fly. Every such change is collected and reported, so the pilot is
         # never handed a plan quietly different from the one on the website.
         adjusted = []
-        fields = [('altitude', self.altitudeSpin, settings.get('altitude')),
-                  ('speed', self.speedSpin, settings.get('speed')),
-                  ('side overlap', self.sideOverlapSpin, settings.get('side_overlap')),
-                  ('front overlap', self.frontOverlapSpin, settings.get('front_overlap')),
-                  ('margin', self.marginSpin, settings.get('margin')),
-                  ('direction', self.directionSpin, settings.get('direction')),
-                  ('terrain tolerance', self.terrainToleranceSpin,
+        fields = [(tr('altitude'), self.altitudeSpin, settings.get('altitude')),
+                  (tr('speed'), self.speedSpin, settings.get('speed')),
+                  (tr('side overlap'), self.sideOverlapSpin, settings.get('side_overlap')),
+                  (tr('front overlap'), self.frontOverlapSpin, settings.get('front_overlap')),
+                  (tr('margin'), self.marginSpin, settings.get('margin')),
+                  (tr('direction'), self.directionSpin, settings.get('direction')),
+                  (tr('terrain tolerance'), self.terrainToleranceSpin,
                    settings.get('terrain_tolerance')),
-                  ('max waypoints', self.maxWaypointsSpin, settings.get('split_max_wp'))]
+                  (tr('max waypoints'), self.maxWaypointsSpin, settings.get('split_max_wp'))]
         if orbit:
-            fields.extend((('orbit radius', self.orbitRadiusSpin, settings.get('orbit_radius')),
-                           ('orbit tilt', self.orbitTiltSpin, settings.get('orbit_tilt'))))
+            fields.extend(((tr('orbit radius'), self.orbitRadiusSpin, settings.get('orbit_radius')),
+                           (tr('orbit tilt'), self.orbitTiltSpin, settings.get('orbit_tilt'))))
         if style == 'oblique':
-            fields.append(('camera angle', self.obliquePitchSpin, settings['oblique_pitch']))
+            fields.append((tr('camera angle'), self.obliquePitchSpin, settings['oblique_pitch']))
         if panorama:
-            fields.extend((('panorama overlap', self.panoramaOverlapSpin,
+            fields.extend(((tr('panorama overlap'), self.panoramaOverlapSpin,
                             settings.get('panorama_overlap', 30)),
-                           ('panorama spacing', self.panoramaSpacingSpin,
+                           (tr('panorama spacing'), self.panoramaSpacingSpin,
                             settings.get('panorama_spacing', 0))))
             self.panoramaNadirCheck.setChecked(settings.get('panorama_nadir', True))
         if isinstance(settings.get('corridor_width'), (int, float)):
             # The website's corridor_width is the full mapped width; the
             # plugin's Buffer is the half-width each side.
-            fields.append(('buffer (half of the corridor width)', self.bufferSpin,
+            fields.append((tr('buffer (half of the corridor width)'), self.bufferSpin,
                            float(settings['corridor_width']) / 2.0))
         for label, widget, value in fields:
             if not isinstance(value, (int, float)) or isinstance(value, bool):
@@ -894,21 +917,23 @@ class WebsiteSyncLifecycleMixin:
             bounded = max(widget.minimum(), min(widget.maximum(), value))
             widget.setValue(type(widget.value())(bounded))
             if abs(widget.value() - float(value)) > 1e-6:
-                adjusted.append('%s: %g -> %g' % (label, value, widget.value()))
+                adjusted.append(tr('{label}: {value:g} -> {adjusted:g}',
+                                   label=label, value=value, adjusted=widget.value()))
         if orbit and settings.get('orbit_rings'):
             rings = []
             for index, ring in enumerate(settings['orbit_rings'], 1):
                 values = []
                 for label, widget, key in (
-                        ('radius', self.orbitRadiusSpin, 'radius_m'),
-                        ('altitude', self.altitudeSpin, 'altitude_m'),
-                        ('tilt', self.orbitTiltSpin, 'gimbal_pitch_deg')):
+                        (tr('radius'), self.orbitRadiusSpin, 'radius_m'),
+                        (tr('altitude'), self.altitudeSpin, 'altitude_m'),
+                        (tr('tilt'), self.orbitTiltSpin, 'gimbal_pitch_deg')):
                     value = ring[key]
                     bounded = max(widget.minimum(), min(widget.maximum(), value))
                     converted = type(widget.value())(bounded)
                     if abs(converted - value) > 1e-6:
-                        adjusted.append('ring %d %s: %g -> %g' %
-                                        (index, label, value, converted))
+                        adjusted.append(tr('ring {index} {label}: {value:g} -> {adjusted:g}',
+                                           index=index, label=label, value=value,
+                                           adjusted=converted))
                     values.append(converted)
                 rings.append(tuple(values))
             self._select_orbit_ring(0, rings)
@@ -969,17 +994,18 @@ class WebsiteSyncLifecycleMixin:
             self.splitSpin.setValue(int(max(self.splitSpin.minimum(),
                                            min(self.splitSpin.maximum(), split_count))))
             if self.splitSpin.value() != split_count:
-                adjusted.append('split count: %g -> %g' % (split_count, self.splitSpin.value()))
+                adjusted.append(tr('split count: {value:g} -> {adjusted:g}',
+                                   value=split_count, adjusted=self.splitSpin.value()))
         self._on_param_changed()
         self.autoDirectionBtn.setChecked(bool(settings.get('auto_direction')))
         self._loading_mission = False
         self._restore_imported_route(mission, provenance)
         if capture == 'full' and mission.get('waypoints') and not mission.get('planning_result'):
-            recovery_note = ('This older Full-auto route has no verified capture '
-                             'actions. Choose Regenerate on Map before saving or exporting.')
+            recovery_note = tr('This older Full-auto route has no verified capture '
+                               'actions. Choose Regenerate on Map before saving or exporting.')
         if adjusted:
             self._planning.require_regeneration()
-            self.previewBtn.setText('Regenerate on Map')
+            self.previewBtn.setText(tr('Regenerate on Map'))
         if orbit:
             self._zoom_to_website_geometry(
                 QgsGeometry.fromPolygonXY([self._orbit_ring_points()]), wgs84)

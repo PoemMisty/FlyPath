@@ -33,6 +33,10 @@ def _package_files():
     ).stdout
     files = {Path(value.decode()) for value in output.split(b"\0") if value}
     files.update(path.relative_to(ROOT) for path in (ROOT / "flypath_engine").rglob("*"))
+    i18n = ROOT / "i18n"
+    if i18n.is_dir():
+        files.update(path.relative_to(ROOT) for path in i18n.glob("*.ts"))
+        files.update(path.relative_to(ROOT) for path in i18n.glob("*.qm"))
     return sorted(path for path in files if _include(path) and (ROOT / path).is_file())
 
 
@@ -47,6 +51,13 @@ def main():
         [sys.executable, str(ROOT / "tools" / "vendor_engine.py")],
         cwd=ROOT,
         check=True,
+    )
+    # A compiled .qm is used when lrelease is installed; the plugin also reads
+    # the .ts catalogs directly, so a missing lrelease does not fail the build.
+    subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "update_translations.py"), "--compile-only"],
+        cwd=ROOT,
+        check=False,
     )
 
     output = ROOT / "dist" / f"FlyPath-{_version()}.zip"

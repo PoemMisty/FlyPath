@@ -9,6 +9,11 @@ import sys
 import tempfile
 import zipfile
 
+if __package__:
+    from .flypath_i18n import tr
+else:
+    from flypath_i18n import tr
+
 
 _RC_EXIT_FOUND = 0
 _RC_EXIT_NONE = 10
@@ -130,12 +135,12 @@ def _read_kmz_meta(kmz_path):
 
 def _format_time(create_ms):
     if not create_ms:
-        return 'unknown date'
+        return tr('unknown date')
     try:
         return datetime.datetime.fromtimestamp(
             create_ms / 1000).strftime('%Y-%m-%d %H:%M:%S')
     except Exception:
-        return 'unknown date'
+        return tr('unknown date')
 
 
 def _powershell():
@@ -281,9 +286,9 @@ def list_rc_missions():
     try:
         result, temp_dir = _run(_rc_list_script, timeout=120)
     except subprocess.TimeoutExpired:
-        return 'error', None, [], 'Timed out while reading the RC.'
+        return 'error', None, [], tr('Timed out while reading the RC.')
     except Exception as exc:
-        return 'error', None, [], f'PowerShell error: {exc}'
+        return 'error', None, [], tr('PowerShell error: {error}', error=exc)
     try:
         if result.returncode == _RC_EXIT_DEVICE_NO_WP:
             return 'no_mission', None, [], ''
@@ -291,7 +296,8 @@ def list_rc_missions():
             return 'not_connected', None, [], ''
         if result.returncode != _RC_EXIT_FOUND:
             return ('error', None, [],
-                    result.stderr.strip() or f'Scan failed (exit {result.returncode}).')
+                    result.stderr.strip() or tr('Scan failed (exit {code}).',
+                                                code=result.returncode))
         waypoint_path = None
         uuids = []
         for line in result.stdout.splitlines():

@@ -40,6 +40,11 @@ from .corridor_geometry import (
     sample_polyline, compute_pass_offsets, snake_passes, polyline_length,
 )
 
+if __package__:
+    from .flypath_i18n import tr
+else:
+    from flypath_i18n import tr
+
 try:
     _LineGeometry = QgsWkbTypes.GeometryType.LineGeometry
 except AttributeError:                       # pragma: no cover - older QGIS
@@ -123,15 +128,15 @@ def generate_corridor_route(line_geom, line_crs, altitude_m, shot_spacing_m,
     ValueError if inputs are invalid or no waypoints are produced.
     """
     if altitude_m <= 0:
-        raise ValueError('Altitude must be greater than 0.')
+        raise ValueError(tr('Altitude must be greater than 0.'))
     if not (0.0 <= side_overlap < 1.0):
-        raise ValueError('Side overlap must be between 0% and 99%.')
+        raise ValueError(tr('Side overlap must be between 0% and 99%.'))
     if not drone_specs:
-        raise ValueError('No drone specifications provided.')
+        raise ValueError(tr('No drone specifications provided.'))
     if line_geom is None or line_geom.isEmpty():
-        raise ValueError('Draw or select a corridor centre line first.')
+        raise ValueError(tr('Draw or select a corridor centre line first.'))
     if QgsWkbTypes.geometryType(line_geom.wkbType()) != _LineGeometry:
-        raise ValueError('Corridor mapping needs a line geometry.')
+        raise ValueError(tr('Corridor mapping needs a line geometry.'))
 
     # 1 - reproject to WGS84 to locate the UTM zone, then to metric UTM
     wgs84 = QgsCoordinateReferenceSystem('EPSG:4326')
@@ -181,7 +186,7 @@ def generate_corridor_route(line_geom, line_crs, altitude_m, shot_spacing_m,
 
     if not waypoints:
         raise ValueError(
-            'The corridor produced no waypoints.\n'
-            'Check that the line has length and the buffer is greater than 0.'
+            tr('The corridor produced no waypoints.\n'
+               'Check that the line has length and the buffer is greater than 0.')
         )
     return waypoints, sample_spacing

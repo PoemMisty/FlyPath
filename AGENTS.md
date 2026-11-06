@@ -12,6 +12,7 @@ Important areas:
 
 - `flypath.py`, `flypath_dialog.py`: plugin entry point and main panel.
 - `planning_adapter.py`, `flypath_engine/`: adapter and generated, ignored engine source.
+- `flypath_i18n.py`, `i18n/`: Qt translation helpers and per-language `.ts` catalogs.
 - `flypath_sync.py`, `flypath_library.py`, `flypath_credentials.py`: public website-sync client and credential storage.
 - `wpml/`: consumer/enterprise KMZ serialization.
 - `hardware/`: drone registry.
@@ -31,6 +32,7 @@ Run checks from this repository:
 ```powershell
 python -m pyflakes $(git ls-files '*.py')
 python tools/check_qt6_enums.py
+python tools/update_translations.py --check
 python tools/vendor_engine.py
 python -m pytest -q tests
 ```

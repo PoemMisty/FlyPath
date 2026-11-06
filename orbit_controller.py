@@ -24,6 +24,11 @@ from qgis.gui import QgsMapTool, QgsRubberBand
 
 from .map_tools import FLYPATH_TOOL_NAME, is_flypath_tool, previous_tool
 
+if __package__:
+    from .flypath_i18n import tr
+else:
+    from flypath_i18n import tr
+
 try:
     from . import form_rows, planning_adapter, preview_layers
     from .hardware import registry
@@ -34,22 +39,22 @@ except ImportError:  # standalone tests import modules as top-level packages
     from hardware import registry
 
 
-ORBIT_LABEL = 'Orbit (3D Model)'
+ORBIT_LABEL = tr('Orbit (3D Model)')
 DEFAULT_ORBIT_OVERLAP = 90      # % between neighbouring photos around the ring
 DEFAULT_ORBIT_MAX_WAYPOINTS = 200   # dense rings need more than the mapping default
 # Engine checks that a split would fix: the orbit is then planned split.
 _SPLIT_FIXES = {'waypoint_limit_exceeded', 'battery_time_exceeded',
                 'splitting_required_waypoint_limit', 'splitting_required_battery_limit'}
 MAX_ORBIT_RINGS = 3             # the engine's limit for one orbit mission
-RING_LIMIT_TEXT = 'Ring 3 is the last one: an orbit mission can have up to 3 rings.'
+RING_LIMIT_TEXT = tr('Ring 3 is the last one: an orbit mission can have up to 3 rings.')
 NEW_RING_CLIMB_M = 15.0         # a new ring starts this much above the last one
 NEW_RING_TILT_DEG = 15          # and tilts the camera this much further down
 ORBIT_MIN_ALTITUDE_M = 10.0
 MAPPING_MIN_ALTITUDE_M = 30.0
-NO_CENTRE_TEXT = '— no centre point —'
-DRAW_TEXT = 'Draw Circle on Map'
-EDIT_TEXT = '✎ Edit'
-_INFO_IDLE = 'ⓘ  Hover over any field to see what it does.'
+NO_CENTRE_TEXT = tr('— no centre point —')
+DRAW_TEXT = tr('Draw Circle on Map')
+EDIT_TEXT = tr('✎ Edit')
+_INFO_IDLE = tr('ⓘ  Hover over any field to see what it does.')
 try:
     _MB_YES = QMessageBox.StandardButton.Yes
     _MB_NO = QMessageBox.StandardButton.No
@@ -275,8 +280,8 @@ class OrbitMixin:
         self.orbitCentreLabel = QLabel(NO_CENTRE_TEXT)
         self.orbitCentreLabel.setObjectName('selectionInfo')
         self._tip(self.orbitCentreLabel,
-            'Latitude and longitude of the centre point the drone orbits.')
-        form.addRow('Centre Point', self.orbitCentreLabel)
+            tr('Latitude and longitude of the centre point the drone orbits.'))
+        form.addRow(tr('Centre Point'), self.orbitCentreLabel)
         self._set_row_visible(form, self.orbitCentreLabel, False)
 
         # Draw / edit / remove, like the Draw source of 2D mapping.
@@ -284,20 +289,20 @@ class OrbitMixin:
         self.drawCircleBtn.setObjectName('drawCircleBtn')
         self.drawCircleBtn.setCheckable(True)
         self._tip(self.drawCircleBtn,
-            'Click the object to orbit, or press on it and drag out to set the '
+            tr('Click the object to orbit, or press on it and drag out to set the '
             'radius too. The drone flies this circle, always facing the centre. '
-            'Right click or Escape cancels.')
+            'Right click or Escape cancels.'))
         self.editCircleBtn = QPushButton(EDIT_TEXT)
         self.editCircleBtn.setObjectName('editCircleBtn')
         self.editCircleBtn.setCheckable(True)
         self._tip(self.editCircleBtn,
-            'Edit the circle: drag inside it to move it, or drag a square '
+            tr('Edit the circle: drag inside it to move it, or drag a square '
             'handle or the outline to make it larger or smaller. Click Finish '
-            'Editing when done.')
+            'Editing when done.'))
         self.editCircleBtn.setVisible(False)
-        self.removeCircleBtn = QPushButton('✕ Remove')
+        self.removeCircleBtn = QPushButton(tr('✕ Remove'))
         self.removeCircleBtn.setObjectName('removeCircleBtn')
-        self._tip(self.removeCircleBtn, 'Remove the circle and its waypoints.')
+        self._tip(self.removeCircleBtn, tr('Remove the circle and its waypoints.'))
         self.removeCircleBtn.setVisible(False)
         row = QWidget()
         layout = QHBoxLayout(row)
@@ -316,19 +321,19 @@ class OrbitMixin:
         # Ring selector: the ring whose radius, altitude and tilt the Flight
         # Parameters show and edit.
         self.orbitRingCombo = QComboBox()
-        self.orbitRingCombo.addItem('Ring 1')
+        self.orbitRingCombo.addItem(tr('Ring 1'))
         self._tip(self.orbitRingCombo,
-            'The ring whose radius, altitude and camera tilt are shown in '
+            tr('The ring whose radius, altitude and camera tilt are shown in '
             'Flight Parameters. The drone flies the rings in order, moving '
-            'from the end of one ring to the start of the next.')
-        self.addRingBtn = QPushButton('+ Add Ring')
+            'from the end of one ring to the start of the next.'))
+        self.addRingBtn = QPushButton(tr('+ Add Ring'))
         self.addRingBtn.setObjectName('addRingBtn')
         self._tip(self.addRingBtn,
-            'Add another ring around the same centre, with its own radius, '
-            'altitude and camera tilt. An orbit mission can have up to 3 rings.')
-        self.removeRingBtn = QPushButton('✕ Remove Ring')
+            tr('Add another ring around the same centre, with its own radius, '
+            'altitude and camera tilt. An orbit mission can have up to 3 rings.'))
+        self.removeRingBtn = QPushButton(tr('✕ Remove Ring'))
         self.removeRingBtn.setObjectName('removeRingBtn')
-        self._tip(self.removeRingBtn, 'Remove the selected ring.')
+        self._tip(self.removeRingBtn, tr('Remove the selected ring.'))
         self.orbitRingLimitLabel = QLabel(RING_LIMIT_TEXT)
         self.orbitRingLimitLabel.setObjectName('selectionInfo')
         self.orbitRingLimitLabel.setWordWrap(True)
@@ -348,7 +353,7 @@ class OrbitMixin:
         column.addLayout(buttons)
         column.addWidget(self.orbitRingLimitLabel)
         self._orbitRingRow = row
-        form.addRow('Ring', row)
+        form.addRow(tr('Ring'), row)
         self._set_row_visible(form, row, False)
 
     def _build_orbit_flight_rows(self, form):
@@ -358,11 +363,11 @@ class OrbitMixin:
         self.orbitRadiusSpin.setValue(30.0)
         self.orbitRadiusSpin.setSingleStep(5.0)
         self.orbitRadiusSpin.setDecimals(1)
-        self.orbitRadiusSpin.setSuffix(' m')
+        self.orbitRadiusSpin.setSuffix(tr(' m'))
         self._tip(self.orbitRadiusSpin,
-            'Distance from the centre to the flight circle. Leave enough room '
-            'around the object for a safe flight.')
-        form.addRow('Radius', self.orbitRadiusSpin)
+            tr('Distance from the centre to the flight circle. Leave enough room '
+            'around the object for a safe flight.'))
+        form.addRow(tr('Radius'), self.orbitRadiusSpin)
 
         self.orbitTiltSpin = QSpinBox()
         self.orbitTiltSpin.setRange(-90, 0)
@@ -370,9 +375,9 @@ class OrbitMixin:
         self.orbitTiltSpin.setSingleStep(5)
         self.orbitTiltSpin.setSuffix(' °')
         self._tip(self.orbitTiltSpin,
-            'Camera tilt. 0° looks at the horizon, -90° straight down. Oblique '
-            'angles between -30° and -45° suit 3D models.')
-        form.addRow('Camera Tilt', self.orbitTiltSpin)
+            tr('Camera tilt. 0° looks at the horizon, -90° straight down. Oblique '
+            'angles between -30° and -45° suit 3D models.'))
+        form.addRow(tr('Camera Tilt'), self.orbitTiltSpin)
 
         for widget in (self.orbitRadiusSpin, self.orbitTiltSpin):
             self._set_row_visible(form, widget, False)
@@ -428,9 +433,9 @@ class OrbitMixin:
             self.reverseRouteCheck.setEnabled(True)
         if hint is not None:
             hint._text = ((
-                'Fly the ring counterclockwise (seen from above) instead of '
-                'clockwise. The drone starts at the north point of the circle '
-                'either way.') if orbit else self._mapping_reverse_tip)
+                tr('Fly the ring counterclockwise (seen from above) instead of '
+                   'clockwise. The drone starts at the north point of the circle '
+                   'either way.')) if orbit else self._mapping_reverse_tip)
         # The takeoff zone and contours are built for mapping grids.
         self._takeoffGroup.setVisible(not orbit)
 
@@ -477,7 +482,7 @@ class OrbitMixin:
         self.frontOverlapStack.setCurrentIndex(0)
         label = self._row_label(self._flight_form, self.frontOverlapStack)
         if label is not None:
-            label.setText('Side Overlap')
+            label.setText(tr('Side Overlap'))
         self._set_row_visible(self._area_form, self.demCombo, False)
 
     def _restore_mapping_overlap_rows(self):
@@ -485,7 +490,7 @@ class OrbitMixin:
         self._set_row_visible(self._flight_form, self.frontOverlapStack, True)
         label = self._row_label(self._flight_form, self.frontOverlapStack)
         if label is not None:
-            label.setText('Front Overlap')
+            label.setText(tr('Front Overlap'))
 
     # ── Rings ─────────────────────────────────────────────────────────────
 
@@ -524,7 +529,7 @@ class OrbitMixin:
         blocked = combo.blockSignals(True)
         if combo.count() != count:
             combo.clear()
-            combo.addItems(['Ring %d' % (number + 1) for number in range(count)])
+            combo.addItems([tr('Ring {number}', number=number + 1) for number in range(count)])
         combo.setCurrentIndex(self._orbit_ring_index)
         combo.blockSignals(blocked)
         combo.setEnabled(count > 1)
@@ -533,11 +538,11 @@ class OrbitMixin:
         self.orbitRingLimitLabel.setVisible(count >= MAX_ORBIT_RINGS)
         # The ring fields sit in Flight Parameters, so their labels name the
         # ring they edit once there is more than one.
-        suffix = (' (Ring %d)' % (self._orbit_ring_index + 1)
+        suffix = (tr(' (Ring {ring})', ring=self._orbit_ring_index + 1)
                   if count > 1 and self._mission_kind() == 'orbit' else '')
-        for widget, text in ((self.altitudeSpin, 'Altitude'),
-                             (self.orbitRadiusSpin, 'Radius'),
-                             (self.orbitTiltSpin, 'Camera Tilt')):
+        for widget, text in ((self.altitudeSpin, tr('Altitude')),
+                             (self.orbitRadiusSpin, tr('Radius')),
+                             (self.orbitTiltSpin, tr('Camera Tilt'))):
             label = self._row_label(self._flight_form, widget)
             if label is not None:
                 label.setText(text + suffix)
@@ -611,9 +616,9 @@ class OrbitMixin:
             return
         if self._orbit_centre is not None:
             reply = QMessageBox.question(
-                self, 'Replace Orbit Circle?',
-                'An orbit circle is already defined.\n\n'
-                'Do you want to discard it, with all its rings, and draw a new one?',
+                self, tr('Replace Orbit Circle?'),
+                tr('An orbit circle is already defined.\n\n'
+                'Do you want to discard it, with all its rings, and draw a new one?'),
                 _MB_YES | _MB_NO, _MB_NO)
             if reply != _MB_YES:
                 self._reset_orbit_button(self.drawCircleBtn)
@@ -623,9 +628,9 @@ class OrbitMixin:
             self.drawCircleBtn.setChecked(True)
             self.drawCircleBtn.blockSignals(blocked)
         self._start_orbit_tool(editing=False)
-        self.drawCircleBtn.setText('Click the centre…')
-        self._set_info('Click the object to orbit, or press on it and drag out to set the '
-                       'radius too. Right click or Escape cancels.')
+        self.drawCircleBtn.setText(tr('Click the centre…'))
+        self._set_info(tr('Click the object to orbit, or press on it and drag out to set the '
+                       'radius too. Right click or Escape cancels.'))
 
     def _on_edit_circle_toggled(self, checked):
         if not checked:
@@ -635,14 +640,14 @@ class OrbitMixin:
             self._reset_orbit_button(self.editCircleBtn)
             return
         self._start_orbit_tool(editing=True)
-        self.editCircleBtn.setText('✓ Finish')
+        self.editCircleBtn.setText(tr('✓ Finish'))
         self._set_info(
-            'Editing the orbit circle: drag inside it to move it, or drag a '
-            'square handle or the outline to make it larger or smaller. Click '
-            'Finish when done.' if len(self._orbit_rings) < 2 else
-            'Editing ring %d: drag inside it to move all rings, or drag a '
-            'square handle or the outline to make this ring larger or smaller. '
-            'Click Finish when done.' % (self._orbit_ring_index + 1))
+            tr('Editing the orbit circle: drag inside it to move it, or drag a '
+               'square handle or the outline to make it larger or smaller. Click '
+               'Finish when done.') if len(self._orbit_rings) < 2 else
+            tr('Editing ring {ring}: drag inside it to move all rings, or drag a '
+               'square handle or the outline to make this ring larger or smaller. '
+               'Click Finish when done.', ring=self._orbit_ring_index + 1))
 
     def _leave_orbit_tool(self):
         """Turn the circle tool off and restore the earlier map tool."""
@@ -661,7 +666,7 @@ class OrbitMixin:
 
     def _on_orbit_drag(self, radius):
         button = self.editCircleBtn if self.editCircleBtn.isChecked() else self.drawCircleBtn
-        button.setText(f'Radius {radius:.1f} m')
+        button.setText(tr('Radius {radius:.1f} m', radius=radius))
 
     def _on_orbit_drawn(self, centre, radius):
         """Apply a circle from the map tool; drawing ends, editing goes on."""
@@ -669,7 +674,7 @@ class OrbitMixin:
         if centre is None or not editing:
             self._leave_orbit_tool()
         else:
-            self.editCircleBtn.setText('✓ Finish')
+            self.editCircleBtn.setText(tr('✓ Finish'))
         if centre is None:
             return
         if radius is not None:
@@ -706,7 +711,7 @@ class OrbitMixin:
     def _add_orbit_radius_layer(self, start):
         """A line from the centre to the start point, labelled with the radius."""
         layer = QgsVectorLayer('LineString?crs=EPSG:4326&field=label:string',
-                               'FlyPath — Orbit Radius', 'memory')
+                               tr('FlyPath — Orbit Radius'), 'memory')
         layer.setCustomProperty('flypath_internal', True)
         feature = QgsFeature(layer.fields())
         feature.setGeometry(QgsGeometry.fromPolylineXY(
@@ -742,7 +747,7 @@ class OrbitMixin:
                   if index != self._orbit_ring_index]
         if not others:
             return
-        layer = QgsVectorLayer('LineString?crs=EPSG:4326', 'FlyPath — Orbit Rings', 'memory')
+        layer = QgsVectorLayer('LineString?crs=EPSG:4326', tr('FlyPath — Orbit Rings'), 'memory')
         layer.setCustomProperty('flypath_internal', True)
         features = []
         for radius, _altitude, _tilt in others:
@@ -767,7 +772,7 @@ class OrbitMixin:
             return
         self._add_orbit_others_layer()
         points = self._orbit_ring_points()
-        ring = QgsVectorLayer('Polygon?crs=EPSG:4326', 'FlyPath — Orbit Circle', 'memory')
+        ring = QgsVectorLayer('Polygon?crs=EPSG:4326', tr('FlyPath — Orbit Circle'), 'memory')
         ring.setCustomProperty('flypath_internal', True)
         feature = QgsFeature()
         feature.setGeometry(QgsGeometry.fromPolygonXY([points + [points[0]]]))
@@ -780,7 +785,7 @@ class OrbitMixin:
         self._orbit_ring_layer_id = ring.id()
         self._add_orbit_radius_layer(points[0])
 
-        layer =QgsVectorLayer('Point?crs=EPSG:4326', 'FlyPath — Orbit Centre', 'memory')
+        layer =QgsVectorLayer('Point?crs=EPSG:4326', tr('FlyPath — Orbit Centre'), 'memory')
         layer.setCustomProperty('flypath_internal', True)
         feature = QgsFeature()
         feature.setGeometry(QgsGeometry.fromPointXY(QgsPointXY(*self._orbit_centre)))
@@ -822,8 +827,8 @@ class OrbitMixin:
         if self._orbit_centre is None:
             if not silent:
                 QMessageBox.information(
-                    self, 'No Orbit Centre',
-                    'Click Draw Circle on Map, then click the object to orbit.')
+                    self, tr('No Orbit Centre'),
+                    tr('Click Draw Circle on Map, then click the object to orbit.'))
             return False
         return True
 
@@ -832,8 +837,8 @@ class OrbitMixin:
     def _orbit_request_from_ui(self):
         drone = registry.get(self.droneModelCombo.currentText())
         if drone.category != 'consumer' or not drone.website_code:
-            raise ValueError('Orbit missions need a DJI Fly drone; %s is not supported.'
-                             % drone.name)
+            raise ValueError(tr('Orbit missions need a DJI Fly drone; {drone} is not supported.',
+                                drone=drone.name))
         values = dict(
             centre=self._orbit_centre,
             drone_profile_id=drone.website_code,
@@ -842,7 +847,7 @@ class OrbitMixin:
             speed_m_s=self.speedSpin.value(),
             capture_mode=self._mission_type(),
             side_overlap_ratio=self.sideOverlapSpin.value() / 100.0,
-            finish_action=self.finishActionCombo.currentText(),
+            finish_action=self.finishActionCombo.currentData(),
             max_waypoints_per_flight=self.maxWaypointsSpin.value(),
         )
         request = planning_adapter.build_orbit_request(**values)

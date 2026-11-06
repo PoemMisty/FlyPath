@@ -10,6 +10,11 @@ against a DJI Mini 4 Pro + DJI RC2 native mission dump. Emits wpmz/template.kml
 
 import time
 
+try:
+    from ..flypath_i18n import tr
+except ImportError:  # tests import wpml as a top-level package
+    from flypath_i18n import tr
+
 from .base import esc, package_kmz
 
 # ── Finish action mapping ──────────────────────────────────────────────────
@@ -58,7 +63,7 @@ def write(drone, spec, filepath):
     IOError     if the file cannot be written
     """
     if not spec.waypoints:
-        raise ValueError('No waypoints provided — define a survey area first.')
+        raise ValueError(tr('No waypoints provided — define a survey area first.'))
 
     finish_action = _FINISH_ACTION.get(spec.finish_action, 'goHome')
     height_mode   = 'relativeToStartPoint'
@@ -68,11 +73,11 @@ def write(drone, spec, filepath):
     ts_ms = int(spec.create_time_ms) if spec.create_time_ms else int(time.time() * 1000)
 
     if spec.heights is not None and len(spec.heights) != len(spec.waypoints):
-        raise ValueError('Terrain heights do not match the waypoints.')
+        raise ValueError(tr('Terrain heights do not match the waypoints.'))
     if spec.headings is not None and len(spec.headings) != len(spec.waypoints):
-        raise ValueError('Waypoint headings do not match the waypoints.')
+        raise ValueError(tr('Waypoint headings do not match the waypoints.'))
     if spec.gimbal_pitches is not None and len(spec.gimbal_pitches) != len(spec.waypoints):
-        raise ValueError('Waypoint camera pitches do not match the waypoints.')
+        raise ValueError(tr('Waypoint camera pitches do not match the waypoints.'))
 
     mission_config = _mission_config_xml(drone.drone_enum, finish_action,
                                          spec.speed_ms, exit_on_rc_lost, rc_lost_action)
@@ -173,7 +178,7 @@ def _placemark_blocks(waypoints, altitude_m, speed_ms, gimbal_pitch,
         for action in actions:
             index = action.get('waypoint_index') if isinstance(action, dict) else None
             if type(index) is not int or index not in planned:
-                raise ValueError('Planned action does not match the flight waypoints.')
+                raise ValueError(tr('Planned action does not match the flight waypoints.'))
             planned[index].append(action)
 
     for idx, (lon, lat) in enumerate(waypoints):
@@ -240,7 +245,7 @@ def _planned_action_group(group_id, index, actions, gimbal_pitch, *, legacy=Fals
               <wpml:payloadPositionIndex>0</wpml:payloadPositionIndex>
             </wpml:actionActuatorFuncParam>'''
         else:
-            raise ValueError('Unsupported planned action: %s.' % kind)
+            raise ValueError(tr('Unsupported planned action: {kind}.', kind=kind))
         blocks.append(f'''          <wpml:action>
             <wpml:actionId>{action_id}</wpml:actionId>
 {body}

@@ -17,6 +17,11 @@ disk.
 
 import math
 
+if __package__:
+    from .flypath_i18n import tr
+else:
+    from flypath_i18n import tr
+
 # AWS Open Data Terrarium tiles. z12 is ~25-38 m/pixel at survey latitudes,
 # matching the ~30 m source data; good enough for bare-earth terrain following.
 TERRARIUM_URL = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'
@@ -132,8 +137,8 @@ def densify_by_terrain(waypoints, sample, tolerance_m,
             break
         tolerance *= 2                               # relax until the budget fits
     if len(out_pts) > max_points:
-        raise ValueError('Terrain following exceeds the waypoint limit. Increase the '
-                         'limit or terrain tolerance, or split the flight further.')
+        raise ValueError(tr('Terrain following exceeds the waypoint limit. Increase the '
+                            'limit or terrain tolerance, or split the flight further.'))
     return out_pts, out_elevs
 
 

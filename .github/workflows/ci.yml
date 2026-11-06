@@ -3,6 +3,7 @@ name: CI
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -37,6 +38,9 @@ jobs:
       - name: Lint (pyflakes)
         run: python -m pyflakes $(git ls-files '*.py')
 
+      - name: Translation catalogs
+        run: python tools/update_translations.py --check
+
       - name: Qt6 scoped-enum check
         run: python tools/check_qt6_enums.py
 
@@ -69,3 +73,10 @@ jobs:
               python3 tests/test_qgis_package.py "$(ls -1t dist/FlyPath-*.zip | head -n 1)" &&
               python3 tools/check_qgis_behavior.py &&
               python3 tools/check_qgis_behavior.py --vault'
+
+      - name: Upload plugin ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: FlyPath-plugin
+          path: dist/FlyPath-*.zip
+          if-no-files-found: error

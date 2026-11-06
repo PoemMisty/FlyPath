@@ -15,6 +15,13 @@ from .flypath_engine.measurements import (
     route_distance_m as _route_distance_m,
     survey_area_m2 as _survey_area_m2,
 )
+
+if __package__:
+    from .flypath_i18n import tr
+else:
+    from flypath_i18n import tr
+
+
 def generate_flight_grid(polygon_geom, polygon_crs, altitude_m,
                          shot_spacing_m, side_overlap, direction_deg,
                          margin_m, drone_specs, densify_spacing=None):
@@ -60,7 +67,7 @@ def measure_route(waypoints):
 
 def _survey_area_wgs84(polygon_geom, polygon_crs):
     if polygon_geom is None or polygon_geom.isEmpty():
-        raise ValueError("Survey polygon is empty.")
+        raise ValueError(tr('Survey polygon is empty.'))
     wgs84 = QgsCoordinateReferenceSystem("EPSG:4326")
     geometry = QgsGeometry(polygon_geom)
     geometry.transform(QgsCoordinateTransform(
@@ -68,7 +75,7 @@ def _survey_area_wgs84(polygon_geom, polygon_crs):
     ))
     parts = [_part_to_mapping(part) for part in _polygon_parts(geometry)]
     if not parts:
-        raise ValueError("Survey polygon has no exterior ring.")
+        raise ValueError(tr('Survey polygon has no exterior ring.'))
     return parts[0] if len(parts) == 1 else {"parts": parts}
 
 

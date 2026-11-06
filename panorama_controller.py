@@ -30,6 +30,11 @@ from qgis.gui import QgsMapTool, QgsRubberBand
 
 from .map_tools import FLYPATH_TOOL_NAME, is_flypath_tool, previous_tool
 
+if __package__:
+    from .flypath_i18n import tr, trn
+else:
+    from flypath_i18n import tr, trn
+
 try:
     from . import form_rows, planning_adapter, preview_layers, survey_geometry
     from .hardware import registry
@@ -41,14 +46,14 @@ except ImportError:  # standalone tests import modules as top-level packages
     from hardware import registry
 
 
-PANORAMA_LABEL = 'Panorama'
+PANORAMA_LABEL = tr('Panorama')
 DEFAULT_PANORAMA_OVERLAP = 30   # % between neighbouring photos, as DJI's own panoramas
 DEFAULT_PANORAMA_MAX_WAYPOINTS = 200   # whole panoramas per flight, as many as fit
 PANORAMA_MIN_ALTITUDE_M = 10.0
-NO_POINT_TEXT = '— no panorama point —'
-PLACE_TEXT = 'Place Points on Map'
-PLACING_TEXT = 'Click to add, drag to move…'
-_INFO_IDLE = 'ⓘ  Hover over any field to see what it does.'
+NO_POINT_TEXT = tr('— no panorama point —')
+PLACE_TEXT = tr('Place Points on Map')
+PLACING_TEXT = tr('Click to add, drag to move…')
+_INFO_IDLE = tr('ⓘ  Hover over any field to see what it does.')
 _WGS84 = QgsCoordinateReferenceSystem('EPSG:4326')
 try:
     _ICON_CIRCLE = QgsRubberBand.IconType.ICON_CIRCLE
@@ -163,49 +168,49 @@ class PanoramaMixin:
         The mode (Points or Area) comes first, above Source, because it decides
         whether points are clicked or an area is drawn."""
         dialog = sys.modules[type(self).__module__]   # the panel's segmented buttons
-        self.panoramaPointsRadio = dialog._SegmentButton('Points')
-        self.panoramaAreaRadio = dialog._SegmentButton('Area')
+        self.panoramaPointsRadio = dialog._SegmentButton(tr('Points'))
+        self.panoramaAreaRadio = dialog._SegmentButton(tr('Area'))
         self.panoramaPointsRadio.setChecked(True)
         self._panoramaModeGroup = QButtonGroup(self)
         for button in (self.panoramaPointsRadio, self.panoramaAreaRadio):
             self._panoramaModeGroup.addButton(button)
         self._tip(self.panoramaPointsRadio,
-            'Points: a panorama at every point you click, flown in the order you '
+            tr('Points: a panorama at every point you click, flown in the order you '
             'click them; one point is a single panorama. Drag a point to move it, '
             'and Undo removes the last one. Points need some room between them, '
-            'so the laps around them do not overlap.')
+            'so the laps around them do not overlap.'))
         self._tip(self.panoramaAreaRadio,
-            'Area: draw or choose a survey area, and FlyPath spreads panorama '
-            'points over it on a hexagon grid (like Spexi), flown row by row.')
+            tr('Area: draw or choose a survey area, and FlyPath spreads panorama '
+            'points over it on a hexagon grid (like Spexi), flown row by row.'))
         self._panoramaModeRow = QWidget()
         mode_layout = QHBoxLayout(self._panoramaModeRow)
         mode_layout.setContentsMargins(0, 0, 0, 0)
         mode_layout.addWidget(dialog._segmented(self.panoramaPointsRadio, self.panoramaAreaRadio))
         mode_layout.addStretch()
         source_row, _role = form.getWidgetPosition(self._sourceRow)
-        form.insertRow(source_row, 'Panorama', self._panoramaModeRow)
+        form.insertRow(source_row, tr('Panorama'), self._panoramaModeRow)
         self._set_row_visible(form, self._panoramaModeRow, False)
 
         self.panoramaPointLabel = QLabel(NO_POINT_TEXT)
         self.panoramaPointLabel.setObjectName('selectionInfo')
         self._tip(self.panoramaPointLabel,
-            'Where the panoramas are taken: the point, or how many points.')
-        form.addRow('Points', self.panoramaPointLabel)
+            tr('Where the panoramas are taken: the point, or how many points.'))
+        form.addRow(tr('Points'), self.panoramaPointLabel)
         self._set_row_visible(form, self.panoramaPointLabel, False)
 
         self.placePointBtn = QPushButton(PLACE_TEXT)
         self.placePointBtn.setObjectName('placePointBtn')
         self.placePointBtn.setCheckable(True)
         self._tip(self.placePointBtn,
-            'Click the map where each panorama should be taken, in the order to '
-            'fly them. Drag a point to move it. Right click or Escape finishes.')
-        self.undoPointBtn = QPushButton('↶ Undo')
+            tr('Click the map where each panorama should be taken, in the order to '
+            'fly them. Drag a point to move it. Right click or Escape finishes.'))
+        self.undoPointBtn = QPushButton(tr('↶ Undo'))
         self.undoPointBtn.setObjectName('undoPointBtn')
-        self._tip(self.undoPointBtn, 'Remove the last point added.')
+        self._tip(self.undoPointBtn, tr('Remove the last point added.'))
         self.undoPointBtn.setVisible(False)
-        self.removePointBtn = QPushButton('✕ Remove')
+        self.removePointBtn = QPushButton(tr('✕ Remove'))
         self.removePointBtn.setObjectName('removePointBtn')
-        self._tip(self.removePointBtn, 'Remove every panorama point and its waypoints.')
+        self._tip(self.removePointBtn, tr('Remove every panorama point and its waypoints.'))
         self.removePointBtn.setVisible(False)
         row = QWidget()
         layout = QHBoxLayout(row)
@@ -229,27 +234,27 @@ class PanoramaMixin:
         self.panoramaOverlapSpin.setSingleStep(5)
         self.panoramaOverlapSpin.setSuffix(' %')
         self._tip(self.panoramaOverlapSpin,
-            'How much neighbouring photos overlap, around each row and between '
+            tr('How much neighbouring photos overlap, around each row and between '
             'rows. 30% suits most stitching software; more overlap takes more '
-            'photos.')
-        form.addRow('Photo Overlap', self.panoramaOverlapSpin)
+            'photos.'))
+        form.addRow(tr('Photo Overlap'), self.panoramaOverlapSpin)
 
-        self.panoramaNadirCheck = QCheckBox('Straight-down photo')
+        self.panoramaNadirCheck = QCheckBox(tr('Straight-down photo'))
         self.panoramaNadirCheck.setChecked(True)
         self._tip(self.panoramaNadirCheck,
-            'End each panorama with one photo straight down over its point, so '
-            'the ground under the drone is in the panorama too.')
-        form.addRow('Nadir Photo', self.panoramaNadirCheck)
+            tr('End each panorama with one photo straight down over its point, so '
+            'the ground under the drone is in the panorama too.'))
+        form.addRow(tr('Nadir Photo'), self.panoramaNadirCheck)
 
         self.panoramaSpacingSpin = QSpinBox()
         self.panoramaSpacingSpin.setRange(0, 5000)
         self.panoramaSpacingSpin.setSingleStep(10)
-        self.panoramaSpacingSpin.setSuffix(' m')
+        self.panoramaSpacingSpin.setSuffix(tr(' m'))
         self.panoramaSpacingSpin.setValue(0)
         self._tip(self.panoramaSpacingSpin,
-            'Distance between neighbouring panorama points in Area mode. Auto '
-            'uses the altitude. Closer points take more photos and flight time.')
-        form.addRow('Point Spacing', self.panoramaSpacingSpin)
+            tr('Distance between neighbouring panorama points in Area mode. Auto '
+            'uses the altitude. Closer points take more photos and flight time.'))
+        form.addRow(tr('Point Spacing'), self.panoramaSpacingSpin)
         for widget in (self.panoramaOverlapSpin, self.panoramaNadirCheck, self.panoramaSpacingSpin):
             self._set_row_visible(form, widget, False)
         self._refresh_panorama_spacing_hint()
@@ -287,7 +292,7 @@ class PanoramaMixin:
         self._pathCaption.setVisible(not panorama)
         label = self._row_label(self._mission_form, self._captureRow)
         if label is not None:
-            label.setText('Flight Path' if panorama else 'Capture')
+            label.setText(tr('Flight Path') if panorama else tr('Capture'))
         self._routeTitle.setVisible(True)
         if not panorama:
             return
@@ -334,7 +339,7 @@ class PanoramaMixin:
     def _refresh_panorama_spacing_hint(self, *_args):
         """Show Auto's distance at this altitude."""
         auto = planning_adapter.PANORAMA_AUTO_SPACING_PER_ALTITUDE * self.altitudeSpin.value()
-        self.panoramaSpacingSpin.setSpecialValueText(f'Auto ({auto:.0f} m)')
+        self.panoramaSpacingSpin.setSpecialValueText(tr('Auto ({distance:.0f} m)', distance=auto))
 
     def _panorama_area(self):
         return self.panoramaAreaRadio.isChecked()
@@ -363,8 +368,8 @@ class PanoramaMixin:
             self._on_panorama_point_moved, self._leave_panorama_tool)
         canvas.setMapTool(self._panorama_tool)
         self.placePointBtn.setText(PLACING_TEXT)
-        self._set_info('Click where each panorama should be taken, in the order to fly '
-                       'them. Drag a point to move it. Right click or Escape finishes.')
+        self._set_info(tr('Click where each panorama should be taken, in the order to fly '
+                       'them. Drag a point to move it. Right click or Escape finishes.'))
 
     def _leave_panorama_tool(self):
         """Turn the point tool off and restore the earlier map tool."""
@@ -384,13 +389,13 @@ class PanoramaMixin:
 
     def _on_panorama_point_placed(self, point):
         """A click adds a point after the others."""
-        self._apply_panorama_points(self._panorama_points + [point], 'Point Not Added')
+        self._apply_panorama_points(self._panorama_points + [point], tr('Point Not Added'))
 
     def _on_panorama_point_moved(self, index, point):
         """A drag moves one point; the others and the order stay."""
         points = list(self._panorama_points)
         points[index] = point
-        self._apply_panorama_points(points, 'Point Not Moved')
+        self._apply_panorama_points(points, tr('Point Not Moved'))
 
     def _apply_panorama_points(self, points, refused_title):
         """Use these points and preview them, unless they are too close."""
@@ -410,7 +415,7 @@ class PanoramaMixin:
             planning_adapter.plan(self._panorama_request_from_ui(points))
         except planning_adapter.PlanningError as exc:
             if exc.code == 'points_too_close':
-                return exc.message + ' Place it a little further away.'
+                return exc.message + tr(' Place it a little further away.')
         except ValueError:
             pass                            # the preview reports drone problems
         return None
@@ -446,14 +451,14 @@ class PanoramaMixin:
             self.removePointBtn.setVisible(False)
             self.undoPointBtn.setVisible(False)
             if not points:
-                self.panoramaPointLabel.setText('— draw or choose an area —')
+                self.panoramaPointLabel.setText(tr('— draw or choose an area —'))
             return
         if not points:
             text = NO_POINT_TEXT
         elif len(points) == 1:
             text = f'{points[0][1]:.5f}, {points[0][0]:.5f}'     # ~1 m
         else:
-            text = f'{len(points)} points'
+            text = trn('{n} point', '{n} points', len(points), n=len(points))
         self.panoramaPointLabel.setText(text)
         self.removePointBtn.setVisible(bool(points))
         self.undoPointBtn.setVisible(bool(points))
@@ -466,7 +471,7 @@ class PanoramaMixin:
         if not points:
             return
         layer = QgsVectorLayer('Point?crs=EPSG:4326&field=label:string',
-                               'FlyPath — Panorama Points', 'memory')
+                               tr('FlyPath — Panorama Points'), 'memory')
         layer.setCustomProperty('flypath_internal', True)
         features = []
         for number, point in enumerate(points, 1):
@@ -518,23 +523,23 @@ class PanoramaMixin:
                    for point in result['panorama']['points']]
         self._show_panorama_points(centres)
         self.panoramaPointLabel.setText(
-            '1 point' if len(centres) == 1 else f'{len(centres)} points'
-            f" · {result['panorama']['point_spacing_m']:.0f} m apart")
+            trn('{n} point', '{n} points', len(centres), n=len(centres))
+            + tr(" · {distance:.0f} m apart", distance=result['panorama']['point_spacing_m']))
 
     def _has_panorama_point(self, silent=False):
         if self._panorama_area():
             if self._survey_polygon is None or self._survey_polygon_crs is None:
                 if not silent:
                     QMessageBox.information(
-                        self, 'No Panorama Area',
-                        'Draw a polygon on the map or select a polygon layer first.')
+                        self, tr('No Panorama Area'),
+                        tr('Draw a polygon on the map or select a polygon layer first.'))
                 return False
             return True
         if not self._panorama_points:
             if not silent:
                 QMessageBox.information(
-                    self, 'No Panorama Point',
-                    'Click Place Points on Map, then click where the panorama should be taken.')
+                    self, tr('No Panorama Point'),
+                    tr('Click Place Points on Map, then click where the panorama should be taken.'))
             return False
         return True
 
@@ -543,8 +548,8 @@ class PanoramaMixin:
     def _panorama_request_from_ui(self, points=None):
         drone = registry.get(self.droneModelCombo.currentText())
         if drone.category != 'consumer' or not drone.website_code:
-            raise ValueError('Panorama missions need a DJI Fly drone; %s is not supported.'
-                             % drone.name)
+            raise ValueError(tr('Panorama missions need a DJI Fly drone; {drone} is not supported.',
+                                drone=drone.name))
         if self._panorama_area() and points is None:
             area = {'survey_area': survey_geometry.planning_area(
                         self._survey_polygon, self._survey_polygon_crs),
@@ -558,7 +563,7 @@ class PanoramaMixin:
             speed_m_s=self.speedSpin.value(),
             overlap_ratio=self.panoramaOverlapSpin.value() / 100.0,
             include_nadir=self.panoramaNadirCheck.isChecked(),
-            finish_action=self.finishActionCombo.currentText(),
+            finish_action=self.finishActionCombo.currentData(),
             max_waypoints_per_flight=self.maxWaypointsSpin.value(),
             turn_style='curved' if self._path_curved() else 'straight',
         )

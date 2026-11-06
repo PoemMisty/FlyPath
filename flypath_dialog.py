@@ -136,23 +136,33 @@ from .orbit_controller import (MAPPING_MIN_ALTITUDE_M, ORBIT_LABEL, ORBIT_MIN_AL
                                OrbitMixin)
 from .panorama_controller import PANORAMA_LABEL, PANORAMA_MIN_ALTITUDE_M, PanoramaMixin
 
-OBLIQUE_LABEL = 'Oblique Mapping'
+if __package__:
+    from .flypath_i18n import tr, trn
+else:
+    from flypath_i18n import tr, trn
+
+OBLIQUE_LABEL = tr('Oblique Mapping')
 _GEOD = Geod(ellps='WGS84')
-_COMPASS = ('N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW')
-_OBLIQUE_PASS_NAMES = {'nadir': 'Nadir', 'grid': 'Grid', 'cross_grid': 'Cross grid'}
+_COMPASS = (tr('N'), tr('NE'), tr('E'), tr('SE'), tr('S'), tr('SW'), tr('W'), tr('NW'))
+_OBLIQUE_PASS_NAMES = {
+    'nadir': tr('Nadir'), 'grid': tr('Grid'), 'cross_grid': tr('Cross grid'),
+}
 
 
 def _format_duration(seconds):
     seconds = max(0, round(seconds))
-    return f'{seconds // 60}m {seconds % 60}s' if seconds >= 60 else f'{seconds}s'
+    if seconds >= 60:
+        return tr('{minutes}m {seconds}s', minutes=seconds // 60, seconds=seconds % 60)
+    return tr('{seconds}s', seconds=seconds)
 
 
 def _format_distance(meters):
     meters = max(0, meters)
     if meters >= 1000:
         decimals = 2 if meters < 10000 else 1
-        return f'{meters / 1000:.{decimals}f} km'
-    return f'{round(meters)} m'
+        value = ('{:.%df}' % decimals).format(meters / 1000)
+        return tr('{value} km', value=value)
+    return tr('{value} m', value=round(meters))
 
 try:
     _PolygonGeometry = QgsWkbTypes.GeometryType.PolygonGeometry
@@ -206,7 +216,7 @@ class _TerrainSampler:
         if key in self._tiles:
             image = self._tiles[key]
             if image is None:
-                raise _TerrainError('Elevation data is currently unavailable.')
+                raise _TerrainError(tr('Elevation data is currently unavailable.'))
         else:
             try:
                 image = self._fetch_tile(x, y)
@@ -227,11 +237,11 @@ class _TerrainSampler:
             request.setTransferTimeout(10000)    # ms; Qt 5.15+/6 only
         reply = QgsNetworkAccessManager.blockingGet(request)
         if reply.error() != _NET_NO_ERROR:
-            raise _TerrainError('Elevation data is currently unavailable.')
+            raise _TerrainError(tr('Elevation data is currently unavailable.'))
         image = QImage()
         if (not image.loadFromData(bytes(reply.content()))
                 or image.width() != TILE_SIZE or image.height() != TILE_SIZE):
-            raise _TerrainError('Elevation tile could not be decoded.')
+            raise _TerrainError(tr('Elevation tile could not be decoded.'))
         return image.convertToFormat(_IMG_RGB32)
 
 class _TerrainLayerSampler:
@@ -247,10 +257,10 @@ class _TerrainLayerSampler:
 
     def sample(self, lon, lat):
         if self._layer is None:
-            raise _TerrainError('No Elevation layer available.')
+            raise _TerrainError(tr('No Elevation layer available.'))
         elev, rv = self._layer_dp.sample(self._layer_xform.transform(QgsPointXY(lon, lat)),1)
         if not rv:
-            raise _TerrainError('Waypoint is outside the selected DEM layer.')
+            raise _TerrainError(tr('Waypoint is outside the selected DEM layer.'))
         return elev
 
 # ── MTP PowerShell exit codes ─────────────────────────────────────────────
@@ -661,7 +671,7 @@ QPushButton#footerSite:hover { color: #A9D0FF; }
 """
 
 
-_INFO_IDLE = 'ⓘ  Hover over any field to see what it does.'
+_INFO_IDLE = tr('ⓘ  Hover over any field to see what it does.')
 
 # Community links shown in the panel footer. FlyPath is free and open-source, so
 # issue reports and contributions are how it grows; these open in the system
@@ -679,8 +689,8 @@ _COLOR_END_MARKER = preview_layers.END_COLOR
 
 
 _RC_THUMB_SIZE = QSize(192, 108)    # 16:9 preview beside the mission picker
-_RC_FOLDER_HINT = ('The RC waypoint folder FlyPath writes the mission into: %s. '
-                   'Set by Detect RC or Locate….')
+_RC_FOLDER_HINT = tr('The RC waypoint folder FlyPath writes the mission into: {path}. '
+                     'Set by Detect RC or Locate….')
 
 
 class _HoverFilter(QObject):
@@ -729,14 +739,14 @@ class _RcFolderBrowser(QDialog):
 
     def __init__(self, list_children, parent=None):
         super().__init__(parent)
-        self.setWindowTitle('Select the RC waypoint folder')
+        self.setWindowTitle(tr('Select the RC waypoint folder'))
         self._list_children = list_children
 
         v = QVBoxLayout(self)
         hint = QLabel(
-            'Browse to the waypoint folder, then click Select. On the RC it is:'
+            tr('Browse to the waypoint folder, then click Select. On the RC it is:'
             '\nDJI RC › Internal shared storage › Android › data '
-            '› dji.go.v5 › files › waypoint'
+            '› dji.go.v5 › files › waypoint')
         )
         hint.setWordWrap(True)
         v.addWidget(hint)
@@ -749,7 +759,7 @@ class _RcFolderBrowser(QDialog):
 
         buttons = QDialogButtonBox(_DBB_OK | _DBB_CANCEL)
         self._ok = buttons.button(_DBB_OK)
-        self._ok.setText('Select')
+        self._ok.setText(tr('Select'))
         self._ok.setEnabled(False)
         buttons.accepted.connect(self.accept)
         buttons.rejected.connect(self.reject)
@@ -918,7 +928,7 @@ class _PreviewButton(QPushButton):
 
     def setText(self, text):
         super().setText(text)
-        stale = text.startswith('Regenerate')
+        stale = text == tr('Regenerate on Map')
         self.setIcon(_drawn_icon(_draw_refresh if stale else _draw_route,
                                  '#1A1A1A' if stale else '#FFFFFF'))
         self.setProperty('stale', stale)
@@ -983,7 +993,7 @@ class _ThumbnailViewer(QDialog):
         self._view.setScene(scene)
         layout.addWidget(self._view, 1)
 
-        hint = QLabel('Scroll to zoom  ·  drag to pan')
+        hint = QLabel(tr('Scroll to zoom  ·  drag to pan'))
         hint.setAlignment(_AlignCenter)
         layout.addWidget(hint)
 
@@ -1196,7 +1206,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self._scroll_content = content
 
     def _build_mission_group(self):
-        group = QGroupBox('Mission Setup')
+        group = QGroupBox(tr('Mission Setup'))
         group.setObjectName('missionGroup')
         form  = QFormLayout(group)
         self._mission_form = form   # kept so hidden rows collapse evenly
@@ -1204,55 +1214,55 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         form.setSpacing(6)
 
         self.missionTypeCombo = QComboBox()
-        self.missionTypeCombo.addItem('2D Mapping')
-        self.missionTypeCombo.addItem(OBLIQUE_LABEL)
-        self.missionTypeCombo.addItem('Corridor Mapping')
-        self.missionTypeCombo.addItem(ORBIT_LABEL)
-        self.missionTypeCombo.addItem(PANORAMA_LABEL)
+        self.missionTypeCombo.addItem(tr('2D Mapping'), '2d')
+        self.missionTypeCombo.addItem(OBLIQUE_LABEL, 'oblique')
+        self.missionTypeCombo.addItem(tr('Corridor Mapping'), 'corridor')
+        self.missionTypeCombo.addItem(ORBIT_LABEL, 'orbit')
+        self.missionTypeCombo.addItem(PANORAMA_LABEL, 'panorama')
         self._tip(self.missionTypeCombo,
-            'The kind of mission to plan. 2D Mapping flies a grid over a survey '
+            tr('The kind of mission to plan. 2D Mapping flies a grid over a survey '
             'polygon. Oblique Mapping flies that grid with a tilted camera, once '
             'facing each side, for 3D models of an area. Corridor Mapping follows '
             'a centre line (roads, pipelines, rivers) and covers a buffer each '
             'side. Orbit (3D Model) circles a centre point, facing it with a '
             'tilted camera, for 3D models. Panorama takes photos all around one '
-            'point, for a stitched 360° panorama.')
-        form.addRow('Mission Type', self.missionTypeCombo)
+            'point, for a stitched 360° panorama.'))
+        form.addRow(tr('Mission Type'), self.missionTypeCombo)
 
         # Capture mode for mapping missions: how the camera is triggered.
-        self.captureSemiRadio = _SegmentButton('Semi')
-        self.captureFullRadio = _SegmentButton('Full')
+        self.captureSemiRadio = _SegmentButton(tr('Semi'))
+        self.captureFullRadio = _SegmentButton(tr('Full'))
         self.captureSemiRadio.setChecked(True)
         self._captureGroup = QButtonGroup(self)
         self._captureGroup.addButton(self.captureSemiRadio)
         self._captureGroup.addButton(self.captureFullRadio)
         self._tip(self.captureSemiRadio,
-            'Semi-automatic: flies a grid of flight lines; you set the camera to '
-            'interval capture before takeoff.')
+            tr('Semi-automatic: flies a grid of flight lines; you set the camera to '
+            'interval capture before takeoff.'))
         self._tip(self.captureFullRadio,
-            'Full-automatic: places a waypoint at every photo and the drone '
+            tr('Full-automatic: places a waypoint at every photo and the drone '
             'shoots automatically (stop-and-shoot), so no manual interval is '
             'needed. Slower and uses more battery because the drone stops at '
-            'each photo.')
+            'each photo.'))
         # Flight Path: how the drone connects waypoints. DJI Fly reshuffles a
         # straight-line mission if it is saved or cloud-synced on the controller
         # (issue #13), so Curved is the recommended default.
-        self.pathCurvedRadio = _SegmentButton('Curved')
-        self.pathStraightRadio = _SegmentButton('Straight')
+        self.pathCurvedRadio = _SegmentButton(tr('Curved'))
+        self.pathStraightRadio = _SegmentButton(tr('Straight'))
         self.pathCurvedRadio.setChecked(True)
         self._pathGroup = QButtonGroup(self)
         self._pathGroup.addButton(self.pathCurvedRadio)
         self._pathGroup.addButton(self.pathStraightRadio)
         self._tip(self.pathCurvedRadio,
-            "Curved (recommended): DJI Fly's native flight path. The mission "
+            tr("Curved (recommended): DJI Fly's native flight path. The mission "
             'survives a save or cloud-sync on the controller unchanged. At photo '
             'spacing the flight lines stay essentially straight and only the '
-            'turnarounds curve.')
+            'turnarounds curve.'))
         self._tip(self.pathStraightRadio,
-            'Straight: dead-straight flight lines with a stop at each point (best '
+            tr('Straight: dead-straight flight lines with a stop at each point (best '
             'mapping geometry). DJI Fly reconnects the waypoints out of order if '
             'you save or cloud-sync the mission on the controller, so use this '
-            'only when you will not re-save it there.')
+            'only when you will not re-save it there.'))
 
         # Capture and Flight Path share one line; orbits hide the path part.
         capture_row = QWidget()
@@ -1266,7 +1276,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         path_layout = QHBoxLayout(self._pathRow)
         path_layout.setContentsMargins(0, 0, 0, 0)
         path_layout.setSpacing(8)
-        path_caption = QLabel('Flight Path')
+        path_caption = QLabel(tr('Flight Path'))
         self._pathCaption = path_caption   # hidden when the row is the path alone
         path_caption.setObjectName('inlineFormLabel')
         path_layout.addWidget(path_caption)
@@ -1274,25 +1284,25 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         capture_layout.addWidget(self._pathRow)
         capture_layout.addStretch()
         self._captureRow = capture_row
-        form.addRow('Capture', capture_row)
+        form.addRow(tr('Capture'), capture_row)
 
         self.droneModelCombo = QComboBox()
         self._tip(self.droneModelCombo,
-            'Your drone model — determines camera sensor specs, '
-            'maximum speed, and battery endurance used in all calculations.')
-        form.addRow('Drone', self.droneModelCombo)
+            tr('Your drone model — determines camera sensor specs, '
+            'maximum speed, and battery endurance used in all calculations.'))
+        form.addRow(tr('Drone'), self.droneModelCombo)
 
         self.cameraInfoLabel = QLabel('—')
         self.cameraInfoLabel.setObjectName('cameraInfoLabel')
         self._tip(self.cameraInfoLabel,
-            'Camera sensor summary for the selected drone. '
-            'Used to calculate GSD, footprint size, and photo interval.')
-        form.addRow('Camera', self.cameraInfoLabel)
+            tr('Camera sensor summary for the selected drone. '
+            'Used to calculate GSD, footprint size, and photo interval.'))
+        form.addRow(tr('Camera'), self.cameraInfoLabel)
 
         return group
 
     def _build_area_group(self):
-        group = QGroupBox('Survey Area')
+        group = QGroupBox(tr('Survey Area'))
         group.setObjectName('areaGroup')
         form  = QFormLayout(group)
         self._area_form = form   # kept so corridor mode can relabel the Area row
@@ -1301,21 +1311,21 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
 
         # Source: use an existing polygon (layer / selection) or draw one. Only
         # the fields for the chosen source are shown, keeping the section compact.
-        self.sourceLayerRadio     = _SegmentButton('Layer')
-        self.sourceSelectionRadio = _SegmentButton('Selection')
-        self.sourceDrawRadio      = _SegmentButton('Draw')
+        self.sourceLayerRadio     = _SegmentButton(tr('Layer'))
+        self.sourceSelectionRadio = _SegmentButton(tr('Selection'))
+        self.sourceDrawRadio      = _SegmentButton(tr('Draw'))
         self.sourceDrawRadio.setChecked(True)    # drawing is the default source
         self._sourceGroup = QButtonGroup(self)
         self._sourceGroup.addButton(self.sourceLayerRadio)
         self._sourceGroup.addButton(self.sourceSelectionRadio)
         self._sourceGroup.addButton(self.sourceDrawRadio)
         self._tip(self.sourceLayerRadio,
-            'Use an existing area from a polygon layer in the project.')
+            tr('Use an existing area from a polygon layer in the project.'))
         self._tip(self.sourceSelectionRadio,
-            'Adopt the polygon currently selected in QGIS. Select a feature on '
-            'the map first, then use the button below.')
+            tr('Adopt the polygon currently selected in QGIS. Select a feature on '
+            'the map first, then use the button below.'))
         self._tip(self.sourceDrawRadio,
-            'Draw the survey area directly on the map.')
+            tr('Draw the survey area directly on the map.'))
         source_row = QWidget()
         source_layout = QHBoxLayout(source_row)
         source_layout.setContentsMargins(0, 0, 0, 0)
@@ -1323,39 +1333,39 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             self.sourceLayerRadio, self.sourceSelectionRadio, self.sourceDrawRadio))
         source_layout.addStretch()
         self._sourceRow = source_row   # kept so orbit mode can hide it
-        form.addRow('Source', source_row)
+        form.addRow(tr('Source'), source_row)
 
         # From-layer: the layer and its feature (FID) picker share one line.
         self.layerCombo = QComboBox()
         self._tip(self.layerCombo,
-            'Select a polygon layer from the QGIS project. Only polygon layers '
-            'are listed. For a multi-feature layer, pick the feature beside it.')
+            tr('Select a polygon layer from the QGIS project. Only polygon layers '
+            'are listed. For a multi-feature layer, pick the feature beside it.'))
         self.featureCombo = QComboBox()
         self.featureCombo.setVisible(False)
         self._tip(self.featureCombo,
-            'Which feature of the layer to use as the survey area, when the '
-            'layer has more than one.')
+            tr('Which feature of the layer to use as the survey area, when the '
+            'layer has more than one.'))
         self._featureLabel = None   # the feature picker shares the Layer row now
         self._layerRow = QWidget()
         layer_layout = QHBoxLayout(self._layerRow)
         layer_layout.setContentsMargins(0, 0, 0, 0)
         layer_layout.setSpacing(4)
         layer_layout.addWidget(self.layerCombo, 3)
-        self._featureCaption = QLabel('Feature')
+        self._featureCaption = QLabel(tr('Feature'))
         self._featureCaption.setObjectName('inlineFormLabel')
         self._featureCaption.setVisible(False)   # only when a feature picker shows
         layer_layout.addWidget(self._featureCaption)
         layer_layout.addWidget(self.featureCombo, 2)
 
-        self.useSelectionBtn = QPushButton('Use QGIS Selection')
+        self.useSelectionBtn = QPushButton(tr('Use QGIS Selection'))
         self.useSelectionBtn.setObjectName('useSelectionBtn')
         self._tip(self.useSelectionBtn,
-            'Adopt the polygon currently selected with the QGIS selection tool. '
-            'Exactly one polygon must be selected across all layers.')
-        self.selectionInfoLabel = QLabel('— none selected —')
+            tr('Adopt the polygon currently selected with the QGIS selection tool. '
+            'Exactly one polygon must be selected across all layers.'))
+        self.selectionInfoLabel = QLabel(tr('— none selected —'))
         self.selectionInfoLabel.setObjectName('selectionInfo')
         self._tip(self.selectionInfoLabel,
-            'The layer and feature ID adopted from the current QGIS selection.')
+            tr('The layer and feature ID adopted from the current QGIS selection.'))
         self._selectionRow = QWidget()
         sel_layout = QHBoxLayout(self._selectionRow)
         sel_layout.setContentsMargins(0, 0, 0, 0)
@@ -1364,26 +1374,26 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         sel_layout.addWidget(self.useSelectionBtn)
 
         # Draw: draw / edit / remove.
-        self.drawPolygonBtn = QPushButton('Draw Polygon on Map')
+        self.drawPolygonBtn = QPushButton(tr('Draw Polygon on Map'))
         self.drawPolygonBtn.setObjectName('drawPolygonBtn')
         self.drawPolygonBtn.setCheckable(True)
         self._tip(self.drawPolygonBtn,
-            'Activate the polygon drawing tool. '
+            tr('Activate the polygon drawing tool. '
             'Left-click to place vertices, right-click or double-click to finish, '
-            'Backspace to undo the last vertex, Escape to cancel.')
+            'Backspace to undo the last vertex, Escape to cancel.'))
 
-        self.editPolygonBtn = QPushButton('✎ Edit')
+        self.editPolygonBtn = QPushButton(tr('✎ Edit'))
         self.editPolygonBtn.setObjectName('editPolygonBtn')
         self._tip(self.editPolygonBtn,
-            'Edit the drawn polygon: drag a vertex to move it, click an edge '
+            tr('Edit the drawn polygon: drag a vertex to move it, click an edge '
             'to add a vertex, or select a vertex and press Delete to remove '
-            'it. Click Finish when done.')
+            'it. Click Finish when done.'))
         self.editPolygonBtn.setVisible(False)
 
-        self.removePolygonBtn = QPushButton('✕ Remove')
+        self.removePolygonBtn = QPushButton(tr('✕ Remove'))
         self.removePolygonBtn.setObjectName('removePolygonBtn')
         self._tip(self.removePolygonBtn,
-            'Remove the drawn polygon and reset the survey area.')
+            tr('Remove the drawn polygon and reset the survey area.'))
         self.removePolygonBtn.setVisible(False)
 
         self._drawRow = QWidget()
@@ -1411,7 +1421,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self._fit_source_stack()
         # A labelled row ("Layer" for the Layer source), so its box starts and
         # ends where the DEM box does.
-        form.addRow('Layer', self._sourceStack)
+        form.addRow(tr('Layer'), self._sourceStack)
         self._fit_source_stack()
         self._build_orbit_area_row(form)   # orbit centre, hidden until Orbit
         self._build_panorama_area_row(form)   # panorama point, hidden until Panorama
@@ -1420,11 +1430,11 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         # shown for both sources.
         self.demCombo = QComboBox()
         self._tip(self.demCombo,
-            'Elevation source used for terrain follow and the takeoff zone. '
+            tr('Elevation source used for terrain follow and the takeoff zone. '
             'Pick a raster layer with ground elevations in band 1 for accurate, '
             'high-resolution results; with none, an online ~30 m global source '
-            'is used, which is coarser and noisier for tight tolerances.')
-        form.addRow('DEM', self.demCombo)
+            'is used, which is coarser and noisier for tight tolerances.'))
+        form.addRow(tr('DEM'), self.demCombo)
 
         # Keep every source's controls the same height, so the row that appears
         # under Source looks identical (same position and height) whether the
@@ -1443,7 +1453,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         return group
 
     def _build_flight_group(self):
-        group = QGroupBox('Flight Parameters')
+        group = QGroupBox(tr('Flight Parameters'))
         group.setObjectName('flightGroup')
         form  = QFormLayout(group)
         self._flight_form = form   # kept so mission-type logic can hide rows
@@ -1455,34 +1465,34 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.altitudeSpin.setValue(100.0)
         self.altitudeSpin.setSingleStep(5.0)
         self.altitudeSpin.setDecimals(1)
-        self.altitudeSpin.setSuffix(' m')
+        self.altitudeSpin.setSuffix(tr(' m'))
         self._tip(self.altitudeSpin,
-            'Flight altitude above ground level (AGL). '
+            tr('Flight altitude above ground level (AGL). '
             'Higher altitude → wider coverage per photo but lower resolution (larger GSD). '
-            'Lower altitude → sharper images but more flight lines and longer mission time.')
-        form.addRow('Altitude', self.altitudeSpin)
+            'Lower altitude → sharper images but more flight lines and longer mission time.'))
+        form.addRow(tr('Altitude'), self.altitudeSpin)
 
         self.gsdSpin = QDoubleSpinBox()
         self.gsdSpin.setRange(0.10, 20.0)
         self.gsdSpin.setValue(1.0)
         self.gsdSpin.setSingleStep(0.1)
         self.gsdSpin.setDecimals(2)
-        self.gsdSpin.setSuffix(' cm/px')
+        self.gsdSpin.setSuffix(tr(' cm/px'))
         self._tip(self.gsdSpin,
-            'Ground Sampling Distance: the real-world size of one pixel in your photos. '
+            tr('Ground Sampling Distance: the real-world size of one pixel in your photos. '
             'Smaller GSD means higher resolution. Linked to altitude, so changing one '
-            'updates the other (and the flight path when you preview).')
-        form.addRow('GSD', self.gsdSpin)
+            'updates the other (and the flight path when you preview).'))
+        form.addRow(tr('GSD'), self.gsdSpin)
 
         self.sideOverlapSpin = QSpinBox()
         self.sideOverlapSpin.setRange(50, 95)
         self.sideOverlapSpin.setValue(70)
         self.sideOverlapSpin.setSuffix(' %')
         self._tip(self.sideOverlapSpin,
-            'How much adjacent flight lines overlap each other. '
+            tr('How much adjacent flight lines overlap each other. '
             'Higher → fewer gaps, better stitching, but more flight lines. '
-            'Recommended: 60–75% for flat terrain, 70–80% for hilly terrain.')
-        form.addRow('Side Overlap', self.sideOverlapSpin)
+            'Recommended: 60–75% for flat terrain, 70–80% for hilly terrain.'))
+        form.addRow(tr('Side Overlap'), self.sideOverlapSpin)
 
         # Front (along-track) overlap sits with Side Overlap since both are
         # overlap settings. It is one row that swaps content by mode via a
@@ -1494,36 +1504,36 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.frontOverlapSpin.setSingleStep(5)
         self.frontOverlapSpin.setSuffix(' %')
         self._tip(self.frontOverlapSpin,
-            'Target front (along-track) overlap between consecutive photos. '
+            tr('Target front (along-track) overlap between consecutive photos. '
             'A waypoint is placed every footprint x (1 - overlap) metres along '
-            'each line. Aim for 75-85% for mapping, 85-90% for 3D models.')
+            'each line. Aim for 75-85% for mapping, 85-90% for 3D models.'))
 
         self.frontOverlapLabel = QLabel('—')
         self.frontOverlapLabel.setObjectName('frontOverlapLabel')
         self.frontOverlapLabel.setAlignment(_AlignLeft | _AlignVCenter)
         self._tip(self.frontOverlapLabel,
-            'Calculated front overlap between consecutive photos along the flight line. '
+            tr('Calculated front overlap between consecutive photos along the flight line. '
             'Based on speed, interval, altitude and drone sensor. '
             'Aim for 75–85% for mapping, 85–90% for 3D models. '
-            'Reduce speed or increase interval to raise overlap.')
+            'Reduce speed or increase interval to raise overlap.'))
 
         self.frontOverlapStack = QStackedWidget()
         self.frontOverlapStack.addWidget(self.frontOverlapLabel)   # index 0: semi
         self.frontOverlapStack.addWidget(self.frontOverlapSpin)    # index 1: full
         self.frontOverlapStack.setSizePolicy(_SP_PREFERRED, _SP_FIXED)
-        form.addRow('Front Overlap', self.frontOverlapStack)
+        form.addRow(tr('Front Overlap'), self.frontOverlapStack)
 
         self.speedSpin = QDoubleSpinBox()
         self.speedSpin.setRange(1.0, 12.0)
         self.speedSpin.setValue(5.0)
         self.speedSpin.setSingleStep(0.5)
         self.speedSpin.setDecimals(1)
-        self.speedSpin.setSuffix(' m/s')
+        self.speedSpin.setSuffix(tr(' m/s'))
         self._tip(self.speedSpin,
-            'Drone flight speed during the mission. '
+            tr('Drone flight speed during the mission. '
             'Higher speed → shorter mission time but may cause motion blur. '
-            'Keep speed low enough for your shutter speed at the chosen altitude.')
-        form.addRow('Speed', self.speedSpin)
+            'Keep speed low enough for your shutter speed at the chosen altitude.'))
+        form.addRow(tr('Speed'), self.speedSpin)
 
         # Direction row: spinbox + Auto button side by side
         dir_widget = QWidget()
@@ -1539,58 +1549,58 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.directionSpin.setSuffix(' °')
         self.directionSpin.setWrapping(True)
         self._tip(self.directionSpin,
-            'Flight line direction in degrees clockwise from North. '
+            tr('Flight line direction in degrees clockwise from North. '
             '0° = North–South lines, 90° = East–West lines. '
-            'Align with the longest axis of the polygon to minimise turns.')
+            'Align with the longest axis of the polygon to minimise turns.'))
 
-        self.autoDirectionBtn = QPushButton('Auto')
+        self.autoDirectionBtn = QPushButton(tr('Auto'))
         self.autoDirectionBtn.setObjectName('autoDirectionBtn')
         self.autoDirectionBtn.setCheckable(True)
         self.autoDirectionBtn.setFixedWidth(52)
         self._tip(self.autoDirectionBtn,
-            'Keep flight direction automatic as parameters change. '
-            'Click again or edit the angle to use a manual direction.')
+            tr('Keep flight direction automatic as parameters change. '
+            'Click again or edit the angle to use a manual direction.'))
 
         dir_layout.addWidget(self.directionSpin)
         dir_layout.addWidget(self.autoDirectionBtn)
         self._dirRow = dir_widget   # kept so corridor mode can hide the row
-        form.addRow('Direction', dir_widget)
+        form.addRow(tr('Direction'), dir_widget)
 
         self.marginSpin = QDoubleSpinBox()
         self.marginSpin.setRange(0.0, 200.0)
         self.marginSpin.setValue(0.0)
         self.marginSpin.setSingleStep(5.0)
         self.marginSpin.setDecimals(1)
-        self.marginSpin.setSuffix(' m')
+        self.marginSpin.setSuffix(tr(' m'))
         self._tip(self.marginSpin,
-            'Buffer distance added around the survey polygon boundary. '
+            tr('Buffer distance added around the survey polygon boundary. '
             'Ensures full photo coverage at the edges. '
-            'Typically 0–50 m depending on altitude and terrain.')
-        form.addRow('Margin', self.marginSpin)
+            'Typically 0–50 m depending on altitude and terrain.'))
+        form.addRow(tr('Margin'), self.marginSpin)
 
         # Oblique Mapping only: the pass pattern, the camera angle of the
         # oblique passes, and an optional nadir pass flown first, like 2D Mapping.
-        self.obliqueFastRadio = _SegmentButton('Fast')
-        self.obliqueFullRadio = _SegmentButton('Full')
+        self.obliqueFastRadio = _SegmentButton(tr('Fast'))
+        self.obliqueFullRadio = _SegmentButton(tr('Full'))
         self.obliqueFastRadio.setChecked(True)
         self._obliquePatternGroup = QButtonGroup(self)
         self._obliquePatternGroup.addButton(self.obliqueFastRadio)
         self._obliquePatternGroup.addButton(self.obliqueFullRadio)
         self._tip(self.obliqueFastRadio,
-            'Fast: two crossing grids with the tilted camera facing along each '
+            tr('Fast: two crossing grids with the tilted camera facing along each '
             'line, so neighbouring lines photograph opposite sides. About half '
-            'the flight time of Full, and the drone always flies forwards.')
+            'the flight time of Full, and the drone always flies forwards.'))
         self._tip(self.obliqueFullRadio,
-            'Full: four passes, each with the camera facing one side (like DJI '
+            tr('Full: four passes, each with the camera facing one side (like DJI '
             "Pilot 2's oblique routes). More photos from every side for the best "
             '3D models; the drone holds its heading, so it flies some lines '
-            'sideways or backwards.')
+            'sideways or backwards.'))
         self._obliquePatternRow = QWidget()
         pattern_layout = QHBoxLayout(self._obliquePatternRow)
         pattern_layout.setContentsMargins(0, 0, 0, 0)
         pattern_layout.addWidget(_segmented(self.obliqueFastRadio, self.obliqueFullRadio))
         pattern_layout.addStretch()
-        form.addRow('Pattern', self._obliquePatternRow)
+        form.addRow(tr('Pattern'), self._obliquePatternRow)
 
         self.obliquePitchSpin = QSpinBox()
         self.obliquePitchSpin.setRange(-85, -20)
@@ -1598,17 +1608,17 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.obliquePitchSpin.setSingleStep(5)
         self.obliquePitchSpin.setSuffix(' °')
         self._tip(self.obliquePitchSpin,
-            'Camera angle of the oblique passes. -90° would look straight down; '
+            tr('Camera angle of the oblique passes. -90° would look straight down; '
             'angles from -45° to -60° suit 3D models. Each oblique pass is moved '
-            'out from the area so the photo centres still land inside it.')
-        form.addRow('Camera Angle', self.obliquePitchSpin)
-        self.obliqueNadirCheck = QCheckBox('Fly a nadir pass')
+            'out from the area so the photo centres still land inside it.'))
+        form.addRow(tr('Camera Angle'), self.obliquePitchSpin)
+        self.obliqueNadirCheck = QCheckBox(tr('Fly a nadir pass'))
         self.obliqueNadirCheck.setChecked(True)
         self._tip(self.obliqueNadirCheck,
-            'Fly the area once with the camera straight down before the four '
+            tr('Fly the area once with the camera straight down before the four '
             'oblique passes. It adds a sharp top view and roughly a fifth more '
-            'flight time.')
-        form.addRow('Nadir Pass', self.obliqueNadirCheck)
+            'flight time.'))
+        form.addRow(tr('Nadir Pass'), self.obliqueNadirCheck)
         for widget in (self._obliquePatternRow, self.obliquePitchSpin, self.obliqueNadirCheck):
             self._set_row_visible(form, widget, False)
 
@@ -1619,12 +1629,12 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.bufferSpin.setValue(10.0)
         self.bufferSpin.setSingleStep(1.0)
         self.bufferSpin.setDecimals(1)
-        self.bufferSpin.setSuffix(' m')
+        self.bufferSpin.setSuffix(tr(' m'))
         self._tip(self.bufferSpin,
-            'Corridor half-width: how far to map on EACH side of the centre '
+            tr('Corridor half-width: how far to map on EACH side of the centre '
             'line (total mapped width is twice this). FlyPath adds parallel '
-            'passes automatically to cover it at the current altitude/overlap.')
-        form.addRow('Buffer', self.bufferSpin)
+            'passes automatically to cover it at the current altitude/overlap.'))
+        form.addRow(tr('Buffer'), self.bufferSpin)
         self._set_row_visible(form, self.bufferSpin, False)
 
         self._build_orbit_flight_rows(form)   # radius, tilt, direction; Orbit only
@@ -1636,7 +1646,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         """Adv. Mission Organizers — how the planned grid is turned into the
         deliverable mission files: how many to split it into, the per-mission
         waypoint cap, and whether to add a perpendicular cross-hatch pass."""
-        group = QGroupBox('Adv. Mission Organizers')
+        group = QGroupBox(tr('Adv. Mission Organizers'))
         group.setObjectName('organizerGroup')
         section = QVBoxLayout(group)
         section.setSpacing(8)
@@ -1647,7 +1657,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         card_layout = QVBoxLayout(split_card)
         card_layout.setContentsMargins(8, 6, 8, 8)
         card_layout.setSpacing(6)
-        split_title = QLabel('MISSION SPLITTING')
+        split_title = QLabel(tr('MISSION SPLITTING'))
         split_title.setObjectName('subsectionLabel')
         card_layout.addWidget(split_title)
         form = QFormLayout()
@@ -1661,46 +1671,46 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.splitSpin.setRange(1, 99)
         self.splitSpin.setValue(1)
         self._tip(self.splitSpin,
-            'Minimum number of separate missions to split the survey into, each '
+            tr('Minimum number of separate missions to split the survey into, each '
             'flown on its own battery and exported as its own KMZ file. Defaults '
             'to the estimated number of batteries; raise it to fly more, smaller '
             'missions. In full-automatic mode this is a minimum: the Max '
-            'Waypoints cap may create more missions than this, never fewer.')
-        self.splitCheck = QCheckBox('Enable splitting')
+            'Waypoints cap may create more missions than this, never fewer.'))
+        self.splitCheck = QCheckBox(tr('Enable splitting'))
         self.splitCheck.setChecked(True)
         self._tip(self.splitCheck,
-            'Allow the planner to add flights when battery or waypoint limits '
+            tr('Allow the planner to add flights when battery or waypoint limits '
             'require them. Turn this off to request one flight; export is blocked '
-            'when that flight cannot satisfy the limits.')
+            'when that flight cannot satisfy the limits.'))
         form.addRow(self.splitCheck)
-        form.addRow('Minimum Flights', self.splitSpin)
+        form.addRow(tr('Minimum Flights'), self.splitSpin)
 
         self.maxWaypointsSpin = QSpinBox()
         self.maxWaypointsSpin.setRange(2, 200)
         self.maxWaypointsSpin.setValue(_DEFAULT_MAX_WAYPOINTS)
         self._tip(self.maxWaypointsSpin,
-            'Maximum waypoints per mission. DJI caps a mission at about 200 '
+            tr('Maximum waypoints per mission. DJI caps a mission at about 200 '
             'waypoints, so the survey is split so no mission exceeds this. '
             'Full-automatic places one waypoint per photo; semi-automatic uses '
-            'two per flight line. Lower it for shorter, more manageable missions.')
-        form.addRow('Max Waypoints', self.maxWaypointsSpin)
+            'two per flight line. Lower it for shorter, more manageable missions.'))
+        form.addRow(tr('Max Waypoints'), self.maxWaypointsSpin)
 
         # Corridor only: place mission breaks on centre-line vertices. Combines
         # with Min Flights (an automatic split by line) and the Max Waypoints cap.
-        self.setBreaksBtn = QPushButton('Set Mission Breaks')
+        self.setBreaksBtn = QPushButton(tr('Set Mission Breaks'))
         self.setBreaksBtn.setObjectName('setBreaksBtn')
         self.setBreaksBtn.setCheckable(True)
         self._tip(self.setBreaksBtn,
-            'Corridor only. Click a centre-line vertex to break the mission there '
+            tr('Corridor only. Click a centre-line vertex to break the mission there '
             '(click again to remove it). Breaks combine with Min Flights (an '
-            'automatic split by line) and the Max Waypoints cap.')
+            'automatic split by line) and the Max Waypoints cap.'))
         form.addRow('', self.setBreaksBtn)
         # Corridor-only control: hidden on load (2D Mapping is the default);
         # _apply_corridor_layout reveals it when Corridor Mapping is selected.
         self._set_row_visible(form, self.setBreaksBtn, False)
 
         # Route options: independent of splitting.
-        route_title = QLabel('ROUTE OPTIONS')
+        route_title = QLabel(tr('ROUTE OPTIONS'))
         route_title.setObjectName('subsectionLabel')
         self._routeTitle = route_title   # hidden when no route option applies
         section.addWidget(route_title)
@@ -1710,25 +1720,25 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         form.setSpacing(6)
         section.addLayout(form)
 
-        self.crossHatchCheck = QCheckBox('Cross-hatch')
+        self.crossHatchCheck = QCheckBox(tr('Cross-hatch'))
         self._tip(self.crossHatchCheck,
-            'Fly the grid, then fly it again perpendicular to the flight '
+            tr('Fly the grid, then fly it again perpendicular to the flight '
             'direction. The double coverage improves 3D reconstruction and, for '
             'LiDAR, point-cloud stability. It roughly doubles flight time, photos '
-            'and battery use.')
-        self.reverseRouteCheck = QCheckBox('Reverse route')
+            'and battery use.'))
+        self.reverseRouteCheck = QCheckBox(tr('Reverse route'))
         self._tip(self.reverseRouteCheck,
-            'Start the mission from the opposite end. Available for 2D '
+            tr('Start the mission from the opposite end. Available for 2D '
             'missions without terrain follow, and for Oblique Mapping, where '
-            'each pass starts from its other end.')
-        self.terrainFollowCheck = QCheckBox('Terrain follow')
+            'each pass starts from its other end.'))
+        self.terrainFollowCheck = QCheckBox(tr('Terrain follow'))
         self._tip(self.terrainFollowCheck,
-            'Vary each waypoint height to hold a constant height above ground, '
+            tr('Vary each waypoint height to hold a constant height above ground, '
             'using free global elevation data sampled on the fly (nothing is '
             'saved to disk). Full-automatic sets a height at every photo; '
             'semi-automatic adds waypoints along the flight lines where the '
             'ground rises or falls by more than the tolerance. It follows the '
-            'bare-earth terrain, not trees or buildings, so keep a safe margin.')
+            'bare-earth terrain, not trees or buildings, so keep a safe margin.'))
         # Route options: Cross-hatch and Reverse route on one line, Terrain
         # follow under them, so they fit the column without widening the panel.
         # Add the layouts directly (not wrapped in a QWidget) so no background
@@ -1752,12 +1762,12 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.terrainToleranceSpin.setValue(5.0)
         self.terrainToleranceSpin.setSingleStep(1.0)
         self.terrainToleranceSpin.setDecimals(0)
-        self.terrainToleranceSpin.setSuffix(' m')
+        self.terrainToleranceSpin.setSuffix(tr(' m'))
         self._tip(self.terrainToleranceSpin,
-            'Semi-automatic terrain follow adds a waypoint whenever the ground '
+            tr('Semi-automatic terrain follow adds a waypoint whenever the ground '
             'has risen or fallen by more than this since the last waypoint. '
-            'Smaller means tighter terrain following and more waypoints.')
-        form.addRow('Terrain Tolerance', self.terrainToleranceSpin)
+            'Smaller means tighter terrain following and more waypoints.'))
+        form.addRow(tr('Terrain Tolerance'), self.terrainToleranceSpin)
 
         return group
 
@@ -1778,7 +1788,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.photoIntervalSpin.setValue(2.0)
 
     def _build_advanced_group(self):
-        group = QGroupBox('Safety Actions')
+        group = QGroupBox(tr('Safety Actions'))
         group.setObjectName('safetyGroup')
         form  = QFormLayout(group)
         form.setLabelAlignment(_AlignLeft | _AlignVCenter)
@@ -1786,20 +1796,20 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
 
         self.finishActionCombo = QComboBox()
         self._tip(self.finishActionCombo,
-            'What the drone does after the last waypoint. '
+            tr('What the drone does after the last waypoint. '
             'Return to Home: flies back and lands at takeoff. '
             'Hover: holds position at the last waypoint. '
-            'Land: lands immediately at the last waypoint.')
-        form.addRow('Finish', self.finishActionCombo)
+            'Land: lands immediately at the last waypoint.'))
+        form.addRow(tr('Finish'), self.finishActionCombo)
 
         self.rcLostActionCombo = QComboBox()
         self._tip(self.rcLostActionCombo,
-            'What the drone does if the RC signal is lost during the mission. '
+            tr('What the drone does if the RC signal is lost during the mission. '
             'Return to Home: flies back to takeoff point. '
             'Hover: holds position and waits for signal. '
             'Land: lands immediately at current position. '
-            'Continue: keeps flying the mission regardless.')
-        form.addRow('RC Lost', self.rcLostActionCombo)
+            'Continue: keeps flying the mission regardless.'))
+        form.addRow(tr('RC Lost'), self.rcLostActionCombo)
 
         return group
 
@@ -1813,86 +1823,87 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         the ground whose elevation matches the first waypoint's, within the
         tolerance: a full circle on flat ground, and the matching part of that
         circle where the terrain rises or falls."""
-        group = QGroupBox('Takeoff Zone')
+        group = QGroupBox(tr('Takeoff Zone'))
         group.setObjectName('takeoffGroup')
         self._takeoffGroup = group   # kept so orbit mode can hide it
         self._tip(group,
-            'Ground within %d m of the first waypoint at its elevation, so '
-            'repeat flights keep the same altitude and GSD. A full circle on '
-            'flat ground; the matching-elevation part where the terrain changes. '
-            'Preview a mission and pick a DEM first.' % int(self._TAKEOFF_RADIUS_M))
+            tr('Ground within {radius} m of the first waypoint at its elevation, so '
+               'repeat flights keep the same altitude and GSD. A full circle on '
+               'flat ground; the matching-elevation part where the terrain changes. '
+               'Preview a mission and pick a DEM first.',
+               radius=int(self._TAKEOFF_RADIUS_M)))
         outer = QVBoxLayout(group)
         outer.setContentsMargins(8, 8, 8, 8)
         outer.setSpacing(5)
 
         # ── Contours: show/hide toggle, and where to draw them ──
-        self.showContoursBtn = QPushButton('Show Contours')
+        self.showContoursBtn = QPushButton(tr('Show Contours'))
         self.showContoursBtn.setObjectName('showContoursBtn')
         self.showContoursBtn.setCheckable(True)
         self._tip(self.showContoursBtn,
-            'Toggle DEM elevation contours over the chosen extent, one line per '
+            tr('Toggle DEM elevation contours over the chosen extent, one line per '
             'elevation-tolerance step, so you can see how the terrain shapes the '
-            'takeoff zone. Click again to hide them.')
+            'takeoff zone. Click again to hide them.'))
         self.contourExtentCombo = QComboBox()
-        self.contourExtentCombo.addItem('Survey area', 'survey')
-        self.contourExtentCombo.addItem('Takeoff circles', 'circles')
+        self.contourExtentCombo.addItem(tr('Survey area'), 'survey')
+        self.contourExtentCombo.addItem(tr('Takeoff circles'), 'circles')
         self._tip(self.contourExtentCombo,
-            'Where to draw the DEM contours: across the whole survey area for '
+            tr('Where to draw the DEM contours: across the whole survey area for '
             'terrain context, or only inside the takeoff circles. The contour '
-            'interval matches the elevation tolerance below.')
+            'interval matches the elevation tolerance below.'))
         # ── Show Takeoff Zone, then its settings as labelled rows ──
-        self.showTakeoffZoneBtn = QPushButton('Show Takeoff Zone')
+        self.showTakeoffZoneBtn = QPushButton(tr('Show Takeoff Zone'))
         self.showTakeoffZoneBtn.setObjectName('showTakeoffZoneBtn')
         self.showTakeoffZoneBtn.setCheckable(True)
         self._tip(self.showTakeoffZoneBtn,
-            'Toggle the takeoff-zone overlay: sample the DEM around the first '
+            tr('Toggle the takeoff-zone overlay: sample the DEM around the first '
             'waypoint and highlight the ground that keeps the mission at the same '
-            'altitude within the tolerance. Click again to hide it.')
+            'altitude within the tolerance. Click again to hide it.'))
 
         self.takeoffToleranceSpin = QDoubleSpinBox()
         self.takeoffToleranceSpin.setRange(0.1, 50.0)
         self.takeoffToleranceSpin.setValue(2.0)
         self.takeoffToleranceSpin.setSingleStep(0.5)
         self.takeoffToleranceSpin.setDecimals(1)
-        self.takeoffToleranceSpin.setSuffix(' m')
+        self.takeoffToleranceSpin.setSuffix(tr(' m'))
         self._tip(self.takeoffToleranceSpin,
-            'How far the takeoff ground elevation may differ from the mission '
+            tr('How far the takeoff ground elevation may differ from the mission '
             'start. A tighter tolerance keeps the GSD more consistent between '
-            'flights but leaves a smaller takeoff area.')
+            'flights but leaves a smaller takeoff area.'))
         self.takeoffGsdVarLabel = QLabel('—')
         self.takeoffGsdVarLabel.setObjectName('takeoffGsdVarLabel')
         self._tip(self.takeoffGsdVarLabel,
-            'The GSD change this tolerance allows at the current altitude. '
-            'Smaller is better when comparing maps between flights.')
+            tr('The GSD change this tolerance allows at the current altitude. '
+            'Smaller is better when comparing maps between flights.'))
         # The two overlay toggles, one per line, fill the column.
         outer.addWidget(self.showTakeoffZoneBtn)
         outer.addWidget(self.showContoursBtn)
 
         # ── Same takeoff for all splits, then Launch Offset ──
-        self.sameTakeoffCheck = QCheckBox('Same takeoff for all splits')
+        self.sameTakeoffCheck = QCheckBox(tr('Same takeoff for all splits'))
         self.sameTakeoffCheck.setChecked(True)
         self._tip(self.sameTakeoffCheck,
-            'For split missions with terrain follow on. When on, every split is '
+            tr('For split missions with terrain follow on. When on, every split is '
             'referenced to the original mission first waypoint, so if you launch '
             'all splits from one fixed takeoff point they hold the same height '
             'above ground and keep a consistent GSD. Turn it off when you launch '
             'each split from its own starting point, so each split is referenced '
-            'to its own first waypoint instead.')
+            'to its own first waypoint instead.'))
 
         self.launchOffsetSpin = QDoubleSpinBox()
         self.launchOffsetSpin.setRange(-50.0, 50.0)
         self.launchOffsetSpin.setValue(0.0)
         self.launchOffsetSpin.setSingleStep(0.5)
         self.launchOffsetSpin.setDecimals(1)
-        self.launchOffsetSpin.setSuffix(' m')
+        self.launchOffsetSpin.setSuffix(tr(' m'))
         self._tip(self.launchOffsetSpin,
-            'Height of your actual takeoff spot relative to the ground at the '
+            tr('Height of your actual takeoff spot relative to the ground at the '
             'reference first waypoint (for example about 2 m from a car roof, or '
             'the elevation difference when you launch from a single fixed point). '
             'It shifts every waypoint height so the real height above ground '
             'matches the plan, without changing the GSD, overlap or flight lines. '
             'Positive when your takeoff is higher than the reference, negative '
-            'when lower. Leave at 0 for a ground launch at the first waypoint.')
+            'when lower. Leave at 0 for a ground launch at the first waypoint.'))
 
         # Tolerance, its GSD variance and the launch offset as labelled rows,
         # then the split option, so the section stays narrow.
@@ -1900,10 +1911,10 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         settings_form.setContentsMargins(0, 2, 0, 0)
         settings_form.setLabelAlignment(_AlignLeft | _AlignVCenter)
         settings_form.setSpacing(6)
-        settings_form.addRow('Contours', self.contourExtentCombo)
-        settings_form.addRow('Tolerance', self.takeoffToleranceSpin)
-        settings_form.addRow('GSD Variance', self.takeoffGsdVarLabel)
-        settings_form.addRow('Launch Offset', self.launchOffsetSpin)
+        settings_form.addRow(tr('Contours'), self.contourExtentCombo)
+        settings_form.addRow(tr('Tolerance'), self.takeoffToleranceSpin)
+        settings_form.addRow(tr('GSD Variance'), self.takeoffGsdVarLabel)
+        settings_form.addRow(tr('Launch Offset'), self.launchOffsetSpin)
         outer.addLayout(settings_form)
         outer.addWidget(self.sameTakeoffCheck)
 
@@ -1932,7 +1943,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         form = getattr(self, '_area_form', None)
         label = self._row_label(form, stack) if form is not None else None
         if label is not None:
-            label.setText('Layer' if stack.currentIndex() == 0 else '')
+            label.setText(tr('Layer') if stack.currentIndex() == 0 else '')
 
     def _fit_spin_boxes(self):
         """Size number boxes to their longest value, not Qt's estimate.
@@ -1963,30 +1974,31 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.coverageLabel = QLabel('—')
         self.coverageLabel.setObjectName('coverageLabel')
         self.coverageLabel.hide()
+        reserve = int(round(_BATTERY_RESERVE * 100))
+        usable = int(round((1 - _BATTERY_RESERVE) * 100))
         fields = [
-            ('flightTimeLabel', 'Flight Time',
-             'Estimated total flight duration based on path length and speed. '
-             'Does not include takeoff, landing, or battery swap time.'),
-            ('batteriesLabel',  'Batteries',
-             'Estimated battery charges needed for the mission. Planned against a '
-             f'{int(round(_BATTERY_RESERVE * 100))}% reserve, so usable time per '
-             f'battery is {int(round((1 - _BATTERY_RESERVE) * 100))}% of the '
-             'drone\'s rated endurance, leaving margin for wind, turnarounds and '
-             'a safe return.'),
-            ('distanceLabel',   'Distance',
-             'Total distance the drone will fly along all flight lines.'),
-            ('corridorLengthLabel', 'Corridor Length',
-             'Total length of the corridor centre line (corridor missions only).'),
-            ('waypointsLabel',  'Waypoints',
-             'Total waypoints in the mission: turn points in semi-automatic, one '
-             'per photo in full-automatic. DJI Fly caps a mission near 200, so '
-             'the survey is split to stay under the Max Waypoints value.'),
-            ('photosLabel',     'Photos',
-             'Estimated number of photos the camera will take during the mission.'),
-            ('frontOverlapStatLabel', 'Front Overlap',
-             'Along-track overlap between consecutive photos.'),
-            ('linesLabel',      'Strips',
-             'Number of parallel flight strips needed to cover the survey area.'),
+            ('flightTimeLabel', tr('Flight Time'),
+             tr('Estimated total flight duration based on path length and speed. '
+                'Does not include takeoff, landing, or battery swap time.')),
+            ('batteriesLabel', tr('Batteries'),
+             tr('Estimated battery charges needed for the mission. Planned against a '
+                '{reserve}% reserve, so usable time per battery is {usable}% of the '
+                "drone's rated endurance, leaving margin for wind, turnarounds and "
+                'a safe return.', reserve=reserve, usable=usable)),
+            ('distanceLabel', tr('Distance'),
+             tr('Total distance the drone will fly along all flight lines.')),
+            ('corridorLengthLabel', tr('Corridor Length'),
+             tr('Total length of the corridor centre line (corridor missions only).')),
+            ('waypointsLabel', tr('Waypoints'),
+             tr('Total waypoints in the mission: turn points in semi-automatic, one '
+                'per photo in full-automatic. DJI Fly caps a mission near 200, so '
+                'the survey is split to stay under the Max Waypoints value.')),
+            ('photosLabel', tr('Photos'),
+             tr('Estimated number of photos the camera will take during the mission.')),
+            ('frontOverlapStatLabel', tr('Front Overlap'),
+             tr('Along-track overlap between consecutive photos.')),
+            ('linesLabel', tr('Strips'),
+             tr('Number of parallel flight strips needed to cover the survey area.')),
         ]
         canvas = self.iface.mapCanvas()
         try:
@@ -1999,7 +2011,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         grid.setContentsMargins(16, 12, 16, 12)
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(7)
-        title = QLabel('Mission Stats')
+        title = QLabel(tr('Mission Stats'))
         title.setObjectName('hudTitle')
         grid.addWidget(title, 0, 0)
         self._hudContext = QLabel('—')
@@ -2008,7 +2020,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         grid.addWidget(self._hudContext, 0, 1)
         self._hudCaptions = {}
         for i, (attr, caption, tip) in enumerate(fields):
-            cap = QLabel(f'{caption}')          # single column: one stat per row
+            cap = QLabel(caption)          # single column: one stat per row
             cap.setObjectName('hudCaption')
             val = QLabel('—')
             val.setObjectName(attr)
@@ -2067,18 +2079,19 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             panorama = self._mission_kind() == 'panorama'
             context = [self.coverageLabel.text()]
             if not orbit and not panorama:
-                context.append(f'{self.gsdSpin.value():.2f} cm')
+                context.append(tr('{gsd:.2f} cm', gsd=self.gsdSpin.value()))
             self._hudContext.setText(' · '.join(value for value in context if value != '—'))
             if self._mission_type() == 'full':
                 spin = (self.sideOverlapSpin if orbit else self.panoramaOverlapSpin if panorama
                         else self.frontOverlapSpin)
-                overlap = f'{spin.value()}%'
+                overlap = tr('{value}%', value=spin.value())
             else:
-                overlap = self.frontOverlapLabel.text().split()[0]
-                overlap = overlap if overlap == '—' else f'{overlap}%'
+                pct = getattr(self, '_front_overlap_pct', None)
+                overlap = '—' if pct is None else tr('{value:.0f}%', value=pct)
             self.frontOverlapStatLabel.setText(overlap)
             self._hudCaptions['frontOverlapStatLabel'].setText(
-                'Side Overlap' if orbit else 'Photo Overlap' if panorama else 'Front Overlap')
+                tr('Side Overlap') if orbit else tr('Photo Overlap')
+                if panorama else tr('Front Overlap'))
             self._position_hud()
             self._hud.show()
             self._hud.raise_()
@@ -2194,13 +2207,13 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(6)
 
-        self.previewBtn = _PreviewButton('Preview on Map')
+        self.previewBtn = _PreviewButton(tr('Preview on Map'))
         self.previewBtn.setObjectName('previewBtn')
         self.previewBtn.setFixedHeight(36)
         self.previewBtn.setIconSize(QSize(18, 18))
         self._tip(self.previewBtn,
-            'Generate the flight grid and display the waypoint path '
-            'on the QGIS map canvas for review before exporting.')
+            tr('Generate the flight grid and display the waypoint path '
+            'on the QGIS map canvas for review before exporting.'))
 
         # A round bin beside the pill; the hint names it.
         self.clearPreviewBtn = _ClearButton()
@@ -2208,8 +2221,8 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.clearPreviewBtn.setFixedSize(36, 36)
         self.clearPreviewBtn.setIconSize(QSize(18, 18))
         self._tip(self.clearPreviewBtn,
-            'Clear Preview: remove the flight path preview layers from the '
-            'map and reset the survey area selection.')
+            tr('Clear Preview: remove the flight path preview layers from the '
+            'map and reset the survey area selection.'))
 
         row_layout.addWidget(self.previewBtn, 1)
         row_layout.addWidget(self.clearPreviewBtn)
@@ -2251,19 +2264,19 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
 
         # GitHub mark + short label, itself a link to the repo, names the group.
         row.addWidget(self._footer_link(
-            ' GitHub', 'Open the FlyPath repository on GitHub',
+            ' GitHub', tr('Open the FlyPath repository on GitHub'),
             _REPO_URL, object_name='footerRepo', icon=gh_icon))
         for label, tip, url in [
-            ('Bug',        'Report a bug',           _BUG_URL),
-            ('Feature',    'Request a feature',      _FEATURE_URL),
-            ('Contribute', 'How to contribute',      _CONTRIB_URL),
-            ('Docs',       'Read the documentation', _README_URL),
+            (tr('Bug'),        tr('Report a bug'),           _BUG_URL),
+            (tr('Feature'),    tr('Request a feature'),      _FEATURE_URL),
+            (tr('Contribute'), tr('How to contribute'),      _CONTRIB_URL),
+            (tr('Docs'),       tr('Read the documentation'), _README_URL),
         ]:
             row.addWidget(self._footer_link(label, tip, url))
         row.addStretch()
         # The project website, pinned to the right end of the same line.
         row.addWidget(self._footer_link(
-            ' flypath.io', 'Visit the FlyPath website', _SITE_URL,
+            ' flypath.io', tr('Visit the FlyPath website'), _SITE_URL,
             object_name='footerSite', icon=fp_icon))
         return footer
 
@@ -2281,7 +2294,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         layout.addWidget(self._build_preview_row())
 
         # ── Export card ───────────────────────────────────────────────────────
-        export_group = QGroupBox('Export Mission')
+        export_group = QGroupBox(tr('Export Mission'))
         export_group.setObjectName('exportGroup')
         export_layout = QVBoxLayout(export_group)
         export_layout.setSpacing(6)
@@ -2294,13 +2307,13 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         dest_layout.setSpacing(4)
 
         self.destCombo = QComboBox()
-        self.destCombo.addItem('Save to computer', 'local')
-        self.destCombo.addItem('Send to DJI RC',   'rc')
+        self.destCombo.addItem(tr('Save to computer'), 'local')
+        self.destCombo.addItem(tr('Send to DJI RC'),   'rc')
         self._tip(self.destCombo,
-            'Choose where the mission goes: a folder on this computer, '
-            'or directly onto a connected DJI RC.')
+            tr('Choose where the mission goes: a folder on this computer, '
+            'or directly onto a connected DJI RC.'))
 
-        dest_label = QLabel('Destination')
+        dest_label = QLabel(tr('Destination'))
         dest_label.setObjectName('formLabel')
         dest_layout.addWidget(dest_label)
         dest_layout.addWidget(self.destCombo, 1)
@@ -2316,12 +2329,12 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         export_layout.addWidget(self.destStack)
 
         # Export button (label adapts to the chosen destination)
-        self.exportBtn = QPushButton('Export KMZ')
+        self.exportBtn = QPushButton(tr('Export KMZ'))
         self.exportBtn.setObjectName('exportBtn')
         self.exportBtn.setMinimumHeight(36)
         self._tip(self.exportBtn,
-            'Save the mission to the chosen folder, or replace the selected '
-            'mission on the RC, depending on the destination above.')
+            tr('Save the mission to the chosen folder, or replace the selected '
+            'mission on the RC, depending on the destination above.'))
         export_layout.addWidget(self.exportBtn)
 
         layout.addWidget(export_group)
@@ -2354,18 +2367,18 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         row.setSpacing(4)
 
         self.localFolderEdit = QLineEdit()
-        self.localFolderEdit.setPlaceholderText('Folder to save the .kmz file…')
+        self.localFolderEdit.setPlaceholderText(tr('Folder to save the .kmz file…'))
         self.localFolderEdit.setText(
             settings.value('local_export_dir', os.path.expanduser('~'))
         )
         self._tip(self.localFolderEdit,
-            'Folder on this computer where the mission .kmz file will be saved.')
+            tr('Folder on this computer where the mission .kmz file will be saved.'))
 
-        self.localBrowseBtn = QPushButton('Browse…')
+        self.localBrowseBtn = QPushButton(tr('Browse…'))
         self.localBrowseBtn.setObjectName('rcBrowseBtn')
         self.localBrowseBtn.setFixedWidth(64)
         self._tip(self.localBrowseBtn,
-            'Choose the folder to save the mission file in.')
+            tr('Choose the folder to save the mission file in.'))
 
         row.addWidget(self.localFolderEdit)
         row.addWidget(self.localBrowseBtn)
@@ -2379,24 +2392,24 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         v.setSpacing(4)
 
         # The two ways to find the RC; placed on the Destination line.
-        self.rcRefreshBtn = QPushButton('⟳ Detect RC')
+        self.rcRefreshBtn = QPushButton(tr('⟳ Detect RC'))
         self.rcRefreshBtn.setMinimumHeight(25)
         self._tip(self.rcRefreshBtn,
-            'Automatically find the DJI RC, whether it is connected over USB '
-            'or shows up as a removable drive, and list its missions.')
+            tr('Automatically find the DJI RC, whether it is connected over USB '
+            'or shows up as a removable drive, and list its missions.'))
 
-        self.rcManualBtn = QPushButton('Locate…')
+        self.rcManualBtn = QPushButton(tr('Locate…'))
         self.rcManualBtn.setObjectName('rcBrowseBtn')
         self.rcManualBtn.setMinimumHeight(25)
         self._tip(self.rcManualBtn,
-            'Locate the waypoint folder yourself: browse This PC, including the '
-            'RC and any drives. Use this if Detect RC did not find it.')
+            tr('Locate the waypoint folder yourself: browse This PC, including the '
+            'RC and any drives. Use this if Detect RC did not find it.'))
 
         # One status line; the chosen waypoint folder shows in its hover hint.
-        self.rcStatusLabel = QLabel('Press Detect RC to find your controller')
+        self.rcStatusLabel = QLabel(tr('Press Detect RC to find your controller'))
         self.rcStatusLabel.setObjectName('rcStatusLabel')
         self.rcStatusLabel.setWordWrap(True)
-        self._tip(self.rcStatusLabel, _RC_FOLDER_HINT % 'none selected yet')
+        self._tip(self.rcStatusLabel, _RC_FOLDER_HINT.format(path=tr('none selected yet')))
         v.addWidget(self.rcStatusLabel)
         self.rcTargetEdit = QLineEdit()     # kept for the chosen folder, not shown
         self.rcTargetEdit.setReadOnly(True)
@@ -2407,23 +2420,23 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         part_layout = QHBoxLayout(self.splitPartRow)
         part_layout.setContentsMargins(0, 0, 0, 0)
         part_layout.setSpacing(4)
-        part_label = QLabel('Mission part')
+        part_label = QLabel(tr('Mission part'))
         part_label.setObjectName('formLabel')
         self.splitPartCombo = QComboBox()
         self._tip(self.splitPartCombo,
-            'Which split mission to send into the selected RC slot. The RC '
+            tr('Which split mission to send into the selected RC slot. The RC '
             'replaces one mission at a time, so send each part in turn, each '
-            'into its own RC mission.')
+            'into its own RC mission.'))
         part_layout.addWidget(part_label)
         part_layout.addWidget(self.splitPartCombo, 1)
         self.splitPartRow.setVisible(False)
 
         self.rcMissionCombo = QComboBox()
         self._tip(self.rcMissionCombo,
-            'The mission on the RC that will be replaced when you export. '
+            tr('The mission on the RC that will be replaced when you export. '
             'Match it by date with what you see in DJI Fly. FlyPath replaces '
             'an existing mission: to add a new one, create it in DJI Fly first, '
-            'then Detect RC.')
+            'then Detect RC.'))
 
         # DJI's own map snapshot of the selected mission, so you can see what
         # you are about to replace. Click to open a zoomable full-size viewer.
@@ -2434,8 +2447,8 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.rcThumbLabel.setWordWrap(True)
         self.rcThumbLabel.setVisible(False)     # shown once a mission is picked
         self._tip(self.rcThumbLabel,
-            'Flight path of the selected mission, drawn from its waypoints so it '
-            'always matches the RC. Click it to open a larger, zoomable view.')
+            tr('Flight path of the selected mission, drawn from its waypoints so it '
+            'always matches the RC. Click it to open a larger, zoomable view.'))
 
         # The part and the RC mission on the left, its preview on the right.
         pick_row = QHBoxLayout()
@@ -2458,17 +2471,13 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.droneModelCombo.setCurrentText('DJI Mini 4 Pro')
 
 
-        self.finishActionCombo.addItems([
-            'Return to Home',
-            'Hover in place',
-            'Land at last waypoint',
-        ])
-        self.rcLostActionCombo.addItems([
-            'Return to Home',
-            'Hover in place',
-            'Land immediately',
-            'Continue mission',
-        ])
+        self.finishActionCombo.addItem(tr('Return to Home'), 'Return to Home')
+        self.finishActionCombo.addItem(tr('Hover in place'), 'Hover in place')
+        self.finishActionCombo.addItem(tr('Land at last waypoint'), 'Land at last waypoint')
+        self.rcLostActionCombo.addItem(tr('Return to Home'), 'Return to Home')
+        self.rcLostActionCombo.addItem(tr('Hover in place'), 'Hover in place')
+        self.rcLostActionCombo.addItem(tr('Land immediately'), 'Land immediately')
+        self.rcLostActionCombo.addItem(tr('Continue mission'), 'Continue mission')
         self._refresh_layer_combo()
         self._refresh_dem_combo()
 
@@ -2479,7 +2488,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         previously_selected = self.layerCombo.currentData()
         self.layerCombo.blockSignals(True)
         self.layerCombo.clear()
-        self.layerCombo.addItem('— none —', None)
+        self.layerCombo.addItem(tr('— none —'), None)
         for layer in QgsProject.instance().mapLayers().values():
             if (hasattr(layer, 'wkbType') and
                     QgsWkbTypes.geometryType(layer.wkbType()) ==
@@ -2495,7 +2504,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         previously_selected = self.demCombo.currentData()
         self.demCombo.blockSignals(True)
         self.demCombo.clear()
-        self.demCombo.addItem('— none —', None)
+        self.demCombo.addItem(tr('— none —'), None)
         for layer in QgsProject.instance().mapLayers().values():
             if not (isinstance(layer, QgsRasterLayer) and layer.isValid()):
                 continue
@@ -2575,7 +2584,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
 
     def _on_param_changed(self):
         if self._planning.settings_changed():
-            self.previewBtn.setText('Regenerate on Map')
+            self.previewBtn.setText(tr('Regenerate on Map'))
             self._update_gsd()
             self._update_interval()
             return
@@ -2661,16 +2670,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
 
     def _mission_kind(self):
         """'corridor', 'orbit', 'oblique', 'panorama', or '2d' (the default 2D grid)."""
-        text = self.missionTypeCombo.currentText()
-        if text == 'Corridor Mapping':
-            return 'corridor'
-        if text == ORBIT_LABEL:
-            return 'orbit'
-        if text == PANORAMA_LABEL:
-            return 'panorama'
-        if text == OBLIQUE_LABEL:
-            return 'oblique'
-        return '2d'
+        return self.missionTypeCombo.currentData() or '2d'
 
     def _on_mission_type_changed(self):
         # This also fires on the semi/full capture toggle, so only reset the
@@ -2683,8 +2683,8 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self._on_param_changed()
 
     def _draw_btn_default_text(self):
-        return ('Draw Line on Map' if self._mission_kind() == 'corridor'
-                else 'Draw Polygon on Map')
+        return (tr('Draw Line on Map') if self._mission_kind() == 'corridor'
+                else tr('Draw Polygon on Map'))
 
     def _apply_corridor_layout(self):
         """Reconfigure the panel for the selected mission kind, then reset the
@@ -2734,24 +2734,24 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self._set_row_visible(self._organizer_form, self.setBreaksBtn, corridor)
         split_lbl = self._row_label(self._organizer_form, self.splitSpin)
         if split_lbl is not None:
-            split_lbl.setText('Min Flights' if corridor else 'Split Missions')
+            split_lbl.setText(tr('Min Flights') if corridor else tr('Split Missions'))
         if not corridor and self.setBreaksBtn.isChecked():
             self.setBreaksBtn.setChecked(False)   # leaving corridor turns the tool off
 
         # Survey Area group: relabel the read-out row and the draw button
         lbl = self._row_label(self._area_form, self.areaLabel)
         if lbl is not None:
-            lbl.setText('Length' if corridor else 'Area')
-        self.areaLabel.setToolTip('Total length of the corridor centre line.'
+            lbl.setText(tr('Length') if corridor else tr('Area'))
+        self.areaLabel.setToolTip(tr('Total length of the corridor centre line.')
                                   if corridor
-                                  else 'Total area of the survey polygon in hectares.')
+                                  else tr('Total area of the survey polygon in hectares.'))
         self._set_hud_length_visible(corridor)   # length stat is corridor-only
         self.drawPolygonBtn.setText(self._draw_btn_default_text())
         self.layerCombo.setToolTip(
-            'Select a line layer for the corridor centre line. Only line layers '
-            'are listed.' if corridor else
-            'Select a polygon layer from the QGIS project. Only polygon layers '
-            'are listed.')
+            tr('Select a line layer for the corridor centre line. Only line layers '
+               'are listed.') if corridor else
+            tr('Select a polygon layer from the QGIS project. Only polygon layers '
+               'are listed.'))
 
         # Orbit swaps the survey area for a centre point and its own controls.
         # 2D terrain follow re-plans outside the engine, which cannot reverse
@@ -2851,10 +2851,11 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             if not self._terrain_warned:
                 self._terrain_warned = True
                 QMessageBox.warning(
-                    self, 'Terrain data unavailable',
-                    f'{exc}\n\nThe flat route can still be previewed, but export '
-                    'is blocked until terrain data is available. Check your '
-                    'connection and toggle Terrain Follow again to retry.')
+                    self, tr('Terrain data unavailable'),
+                    tr('{error}\n\nThe flat route can still be previewed, but export '
+                       'is blocked until terrain data is available. Check your '
+                       'connection and toggle Terrain Follow again to retry.',
+                       error=exc))
             return waypoints, None
 
     def _oblique_terrain_flights(self, result):
@@ -2921,10 +2922,11 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             if not self._terrain_warned:
                 self._terrain_warned = True
                 QMessageBox.warning(
-                    self, 'Terrain Export Blocked',
-                    f'{exc}\n\nThe flat route can still be previewed, but export '
-                    'is blocked until terrain following can be prepared. '
-                    'Resolve the issue and preview again to retry.')
+                    self, tr('Terrain Export Blocked'),
+                    tr('{error}\n\nThe flat route can still be previewed, but export '
+                       'is blocked until terrain following can be prepared. '
+                       'Resolve the issue and preview again to retry.',
+                       error=exc))
             return None
         return flights
 
@@ -3039,6 +3041,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         spd = self.speedSpin.value()
         interval = self.photoIntervalSpin.value()
         if fh is None or spd <= 0 or interval <= 0:
+            self._front_overlap_pct = None
             self.frontOverlapLabel.setText('—')
             self.frontOverlapLabel.setObjectName('frontOverlapLabel')
             self.frontOverlapLabel.style().unpolish(self.frontOverlapLabel)
@@ -3051,15 +3054,19 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         drone = self.droneModelCombo.currentText()
         min_int = (registry.get(drone).camera.min_shoot_interval_s
                    if registry.has(drone) else None)
-        tail = f'   ·   min {min_int:g} s' if min_int else ''
+        self._front_overlap_pct = overlap_pct
+        tail = tr('   ·   min {value:g} s', value=min_int) if min_int else ''
         if overlap_pct < 60:
-            self.frontOverlapLabel.setText(f'{overlap_pct:.0f} %  — too low{tail}')
+            self.frontOverlapLabel.setText(
+                tr('{overlap:.0f} %  — too low{tail}', overlap=overlap_pct, tail=tail))
             self.frontOverlapLabel.setObjectName('frontOverlapWarnLabel')
         elif overlap_pct < 70:
-            self.frontOverlapLabel.setText(f'{overlap_pct:.0f} %  — marginal{tail}')
+            self.frontOverlapLabel.setText(
+                tr('{overlap:.0f} %  — marginal{tail}', overlap=overlap_pct, tail=tail))
             self.frontOverlapLabel.setObjectName('frontOverlapWarnLabel')
         else:
-            self.frontOverlapLabel.setText(f'{overlap_pct:.0f} %{tail}')
+            self.frontOverlapLabel.setText(
+                tr('{overlap:.0f} %{tail}', overlap=overlap_pct, tail=tail))
             self.frontOverlapLabel.setObjectName('frontOverlapLabel')
         self.frontOverlapLabel.style().unpolish(self.frontOverlapLabel)
         self.frontOverlapLabel.style().polish(self.frontOverlapLabel)
@@ -3116,19 +3123,19 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         altitude, so the trade-off is visible before sampling the DEM."""
         var = gsd_variance_pct(self.takeoffToleranceSpin.value(),
                                self.altitudeSpin.value())
-        self.takeoffGsdVarLabel.setText('± %.2f %%' % var)
+        self.takeoffGsdVarLabel.setText(tr('± {value:.2f} %', value=var))
 
     def _on_toggle_takeoff_zone(self, checked):
         """Toggle the takeoff-zone overlay from the single on/off button."""
         if checked:
             if self._show_takeoff_zone():
-                self.showTakeoffZoneBtn.setText('Hide Takeoff Zone')
+                self.showTakeoffZoneBtn.setText(tr('Hide Takeoff Zone'))
             else:
                 self._sync_toggle(self.showTakeoffZoneBtn, False,
-                                  'Show Takeoff Zone')
+                                  tr('Show Takeoff Zone'))
         else:
             self._on_clear_takeoff_zone()
-            self.showTakeoffZoneBtn.setText('Show Takeoff Zone')
+            self.showTakeoffZoneBtn.setText(tr('Show Takeoff Zone'))
 
     def _show_takeoff_zone(self):
         """Sample the DEM around the mission and draw the takeoff zone(s): one
@@ -3136,9 +3143,9 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         False (with a message) otherwise."""
         if (not self._missions and not self._waypoints
                 and not self._has_survey_area(silent=True)):
-            QMessageBox.information(self, 'Takeoff Zone',
-                'Define a survey area and preview a mission first, then show its '
-                'takeoff zone.')
+            QMessageBox.information(self, tr('Takeoff Zone'),
+                tr('Define a survey area and preview a mission first, then show its '
+                'takeoff zone.'))
             return False
         tolerance_m = self.takeoffToleranceSpin.value()
         saved_visibility = preview_layers.visibility()
@@ -3155,39 +3162,39 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             finally:
                 QApplication.restoreOverrideCursor()
         except _TerrainError as exc:
-            QMessageBox.warning(self, 'Takeoff Zone',
-                'Could not read the ground elevation.\n\n%s\n\nSelect a DEM that '
-                'covers the area, or check your internet connection for the '
-                'online elevation source.' % exc)
+            QMessageBox.warning(self, tr('Takeoff Zone'),
+                tr('Could not read the ground elevation.\n\n{error}\n\nSelect a DEM that '
+                   'covers the area, or check your internet connection for the '
+                   'online elevation source.', error=exc))
             return False
         if result is None:
-            QMessageBox.information(self, 'Takeoff Zone',
-                'Preview a mission first, then show its takeoff zone.')
+            QMessageBox.information(self, tr('Takeoff Zone'),
+                tr('Preview a mission first, then show its takeoff zone.'))
             return False
         if result['n_sampled'] == 0:
-            QMessageBox.warning(self, 'Takeoff Zone',
-                'The DEM does not cover the area around this mission, so no '
+            QMessageBox.warning(self, tr('Takeoff Zone'),
+                tr('The DEM does not cover the area around this mission, so no '
                 'ground elevations could be read.\n\nSelect a DEM that covers '
-                'the takeoff area, or switch to the online elevation source.')
+                'the takeoff area, or switch to the online elevation source.'))
             return False
         layer = map_overlays.create_takeoff(result, self._preview_layer_ids)
         if layer is None:
-            QMessageBox.information(self, 'Takeoff Zone',
-                'No takeoff ground was found within %.0f m of the first waypoint '
-                'at its elevation (within %.1f m).\n\nTry a larger tolerance.'
-                % (result['radius_m'], tolerance_m))
+            QMessageBox.information(self, tr('Takeoff Zone'),
+                tr('No takeoff ground was found within {radius:.0f} m of the first waypoint '
+                   'at its elevation (within {tolerance:.1f} m).\n\nTry a larger tolerance.',
+                   radius=result['radius_m'], tolerance=tolerance_m))
             return False
         self._takeoff_layer_id = layer.id()
         preview_layers.restore_visibility(saved_visibility)
         self.iface.mapCanvas().refresh()
 
         n_zones = layer.featureCount()
-        area_word = 'area' if n_zones == 1 else 'areas'
+        area_word = tr('area') if n_zones == 1 else tr('areas')
         self._set_info(
-            'Takeoff zone: %d %s shown in purple within %.0f m of the first '
-            'waypoint, ± %.2f%% GSD variance (tolerance %.1f m).'
-            % (n_zones, area_word, result['radius_m'], result['gsd_var'],
-               tolerance_m))
+            tr('Takeoff zone: {count} {word} shown in purple within {radius:.0f} m of the first '
+               'waypoint, ± {variance:.2f}% GSD variance (tolerance {tolerance:.1f} m).',
+               count=n_zones, word=area_word, radius=result['radius_m'],
+               variance=result['gsd_var'], tolerance=tolerance_m))
         return True
 
     def _remove_takeoff_layer(self):
@@ -3200,7 +3207,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
     def _on_clear_takeoff_zone(self):
         """Remove the takeoff-zone overlay and put the toggle button back to off."""
         self._remove_takeoff_layer()
-        self._sync_toggle(self.showTakeoffZoneBtn, False, 'Show Takeoff Zone')
+        self._sync_toggle(self.showTakeoffZoneBtn, False, tr('Show Takeoff Zone'))
 
     def _refresh_takeoff_zone_if_shown(self):
         """Redraw the takeoff zone when it is currently shown, so toggling "same
@@ -3329,12 +3336,12 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         """Toggle the DEM contour overlay from the single on/off button."""
         if checked:
             if self._show_contours():
-                self.showContoursBtn.setText('Hide Contours')
+                self.showContoursBtn.setText(tr('Hide Contours'))
             else:
-                self._sync_toggle(self.showContoursBtn, False, 'Show Contours')
+                self._sync_toggle(self.showContoursBtn, False, tr('Show Contours'))
         else:
             self._on_clear_contours()
-            self.showContoursBtn.setText('Show Contours')
+            self.showContoursBtn.setText(tr('Show Contours'))
 
     def _show_contours(self):
         """Sample the DEM over the chosen extent and draw elevation contours, one
@@ -3342,9 +3349,9 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         False (with a message) otherwise."""
         if (not self._missions and not self._waypoints
                 and not self._has_survey_area(silent=True)):
-            QMessageBox.information(self, 'DEM Contours',
-                'Define a survey area and preview a mission first, then show the '
-                'contours.')
+            QMessageBox.information(self, tr('DEM Contours'),
+                tr('Define a survey area and preview a mission first, then show the '
+                'contours.'))
             return False
         extent = self.contourExtentCombo.currentData()
         saved_visibility = preview_layers.visibility()
@@ -3356,36 +3363,36 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             finally:
                 QApplication.restoreOverrideCursor()
         except _TerrainError as exc:
-            QMessageBox.warning(self, 'DEM Contours',
-                'Could not read the ground elevation.\n\n%s\n\nSelect a DEM that '
-                'covers the area, or check your internet connection for the '
-                'online elevation source.' % exc)
+            QMessageBox.warning(self, tr('DEM Contours'),
+                tr('Could not read the ground elevation.\n\n{error}\n\nSelect a DEM that '
+                   'covers the area, or check your internet connection for the '
+                   'online elevation source.', error=exc))
             return False
         if result is None:
-            QMessageBox.information(self, 'DEM Contours',
-                'Preview a mission first, then show the contours.')
+            QMessageBox.information(self, tr('DEM Contours'),
+                tr('Preview a mission first, then show the contours.'))
             return False
         if result['n_valid'] == 0:
-            QMessageBox.warning(self, 'DEM Contours',
-                'The DEM does not cover this area, so no ground elevations could '
+            QMessageBox.warning(self, tr('DEM Contours'),
+                tr('The DEM does not cover this area, so no ground elevations could '
                 'be read.\n\nSelect a DEM that covers it, or switch to the online '
-                'elevation source.')
+                'elevation source.'))
             return False
         layer = map_overlays.create_contours(result, self._preview_layer_ids)
         if layer is None:
-            QMessageBox.information(self, 'DEM Contours',
-                'The terrain here is flat within the %.1f m contour interval, so '
-                'there are no lines to draw.\n\nLower the elevation tolerance for '
-                'a finer interval.' % result['interval'])
+            QMessageBox.information(self, tr('DEM Contours'),
+                tr('The terrain here is flat within the {interval:.1f} m contour interval, so '
+                   'there are no lines to draw.\n\nLower the elevation tolerance for '
+                   'a finer interval.', interval=result['interval']))
             return False
         self._contour_layer_id = layer.id()
         preview_layers.restore_visibility(saved_visibility)
         self.iface.mapCanvas().refresh()
-        where = ('the survey area' if extent == 'survey'
-                 else 'the takeoff circles')
+        where = (tr('the survey area') if extent == 'survey'
+                 else tr('the takeoff circles'))
         self._set_info(
-            'DEM contours: %d levels every %.1f m over %s.'
-            % (result['n_levels'], result['interval'], where))
+            tr('DEM contours: {count} levels every {interval:.1f} m over {where}.',
+               count=result['n_levels'], interval=result['interval'], where=where))
         return True
 
     def _remove_contour_layer(self):
@@ -3398,7 +3405,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
     def _on_clear_contours(self):
         """Remove the DEM contour overlay and put the toggle button back to off."""
         self._remove_contour_layer()
-        self._sync_toggle(self.showContoursBtn, False, 'Show Contours')
+        self._sync_toggle(self.showContoursBtn, False, tr('Show Contours'))
 
 
 
@@ -3474,7 +3481,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             return self._panorama_request_from_ui()
         drone = registry.get(self.droneModelCombo.currentText())
         if not drone.website_code:
-            raise ValueError('%s has no shared engine profile.' % drone.name)
+            raise ValueError(tr('{drone} has no shared engine profile.', drone=drone.name))
         if self._mission_kind() == 'oblique':
             return planning_adapter.build_oblique_request(
                 gimbal_pitch_deg=self.obliquePitchSpin.value(),
@@ -3498,7 +3505,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             capture_mode=self._mission_type(),
             front_overlap_ratio=self.frontOverlapSpin.value() / 100.0,
             turn_style='curved' if self._path_curved() else 'straight',
-            finish_action=self.finishActionCombo.currentText(),
+            finish_action=self.finishActionCombo.currentData(),
             split_enabled=self.splitCheck.isChecked(),
             requested_flights=self.splitSpin.value() if self.splitCheck.isChecked() else 1,
             max_waypoints_per_flight=self.maxWaypointsSpin.value(),
@@ -3518,34 +3525,37 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self._missions = [flight['waypoints'] for flight in flights]
         self._gen_elevations = None
         stats = result['statistics']
-        self.coverageLabel.setText(f"{stats['survey_area_m2'] / 10_000:.1f} ha")
+        self.coverageLabel.setText(tr('{area:.1f} ha', area=stats['survey_area_m2'] / 10_000))
         incomplete = not stats.get('estimates_complete', False)
         self.flightTimeLabel.setText(_format_duration(stats['known_estimated_seconds']))
         self.distanceLabel.setText(_format_distance(stats['known_distance_m']))
-        photo_suffix = ' estimated' if stats.get('photo_count_kind') == 'estimate' else ''
-        self.photosLabel.setText(f"{stats['photo_count']:,}{photo_suffix}")
+        photo_suffix = tr(' estimated') if stats.get('photo_count_kind') == 'estimate' else ''
+        self.photosLabel.setText(
+            tr('{count}{suffix}', count=f"{stats['photo_count']:,}", suffix=photo_suffix))
         self.waypointsLabel.setText(f"{stats['waypoint_count']:,}")
         orbit = request.get('operation') == 'plan_orbit'
         if orbit:
             rings = len(result['orbit'].get('rings') or (None,))
-            self.linesLabel.setText('1 ring' if rings == 1 else f'{rings} rings')
+            self.linesLabel.setText(trn('{n} ring', '{n} rings', rings, n=rings))
         elif request.get('operation') == 'plan_panorama':
             area = stats['survey_area_m2']
-            self.coverageLabel.setText(f'{area / 10_000:.1f} ha' if area else '—')
+            self.coverageLabel.setText(
+                tr('{area:.1f} ha', area=area / 10_000) if area else '—')
             self._show_planned_panorama_points(result)
             points = len(result['panorama']['points'])
             rows = len(result['panorama']['points'][0]['rows'])
-            self.linesLabel.setText(f'{points} points' if points > 1 else
-                                    '1 row' if rows == 1 else f'{rows} rows')
+            self.linesLabel.setText(
+                trn('{n} point', '{n} points', points, n=points) if points > 1 else
+                trn('{n} row', '{n} rows', rows, n=rows))
         else:
             self.linesLabel.setText(str(stats['strip_count']))
         self.batteriesLabel.setText(str(stats['battery_count']))
         if orbit and self._mission_type() != 'full':
             self.frontOverlapLabel.setText(
-                f"{result['capture']['side_overlap_ratio'] * 100:.0f} %")
+                tr('{value:.0f} %', value=result['capture']['side_overlap_ratio'] * 100))
         self._show_hud()
         if incomplete:
-            self._set_info('Launch/home travel is not included in these totals.')
+            self._set_info(tr('Launch/home travel is not included in these totals.'))
         if orbit:
             # Split Missions follows the flights the orbit needs until the
             # pilot sets a number.
@@ -3581,8 +3591,9 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             self._missions = []
             self._shot_spacing_m = 0.0
             if not silent:
-                title = {'orbit': 'Cannot Plan Orbit', 'panorama': 'Cannot Plan Panorama'}.get(
-                    self._mission_kind(), 'Cannot Plan Mission')
+                title = {'orbit': tr('Cannot Plan Orbit'),
+                         'panorama': tr('Cannot Plan Panorama')}.get(
+                    self._mission_kind(), tr('Cannot Plan Mission'))
                 QMessageBox.warning(self, title, str(exc))
             return None
 
@@ -3624,8 +3635,10 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         if n > 1:
             passes = self._oblique_flight_passes(n)
             for i in range(n):
-                suffix = f' ({passes[i]})' if passes else ''
-                self.splitPartCombo.addItem(f'Part {i + 1} of {n}{suffix}', i)
+                suffix = tr(' ({label})', label=passes[i]) if passes else ''
+                self.splitPartCombo.addItem(
+                    tr('Part {part} of {count}{suffix}',
+                       part=i + 1, count=n, suffix=suffix), i)
             idx = self.splitPartCombo.findData(prev)
             self.splitPartCombo.setCurrentIndex(idx if idx >= 0 else 0)
         self.splitPartCombo.blockSignals(False)
@@ -3646,7 +3659,8 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             for flight in result['flights']:
                 first = rows[flight['route_start_waypoint_index']]['point_index'] + 1
                 last = rows[flight['route_end_waypoint_index']]['point_index'] + 1
-                names.append(f'point {first}' if first == last else f'points {first} to {last}')
+                names.append(tr('point {first}', first=first) if first == last else
+                             tr('points {first} to {last}', first=first, last=last))
             return names if len(names) == count else None
         if not result or result.get('operation') != 'plan_oblique':
             return None
@@ -3656,8 +3670,9 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         for flight in result['flights']:
             survey_pass = passes[rows[flight['route_start_waypoint_index']]['pass_index']]
             heading = survey_pass['heading_deg']
-            names.append(_OBLIQUE_PASS_NAMES.get(survey_pass['kind']) or 'Facing %s' % _COMPASS[
-                round((heading % 360) / 45) % 8])
+            names.append(_OBLIQUE_PASS_NAMES.get(survey_pass['kind'])
+                         or tr('Facing {direction}', direction=_COMPASS[
+                             round((heading % 360) / 45) % 8]))
         return names if len(names) == count else None
 
     def _update_stats(self):
@@ -3687,7 +3702,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         speed = self.speedSpin.value()
 
         # Coverage area
-        self.coverageLabel.setText(f'{self._area_ha():.1f} ha')
+        self.coverageLabel.setText(tr('{area:.1f} ha', area=self._area_ha()))
 
         # Flight-path stats are taken from the ACTUAL generated waypoints (the
         # same path the preview draws), so distance, lines, photos and time
@@ -3809,7 +3824,8 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         da.setEllipsoid('WGS84')
         length_m = da.measureLength(self._survey_line)
         total_width = 2.0 * self.bufferSpin.value()
-        self.coverageLabel.setText(f'{length_m * total_width / 10_000:.1f} ha')
+        self.coverageLabel.setText(
+            tr('{area:.1f} ha', area=length_m * total_width / 10_000))
 
         full = self._mission_type() == 'full'
         usable_min = d.battery_time_min * (1.0 - _BATTERY_RESERVE)
@@ -3938,17 +3954,17 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             return
         if action == 'unsupported':
             QMessageBox.warning(
-                self, 'Cannot Regenerate Mission',
-                'This saved plan uses an unsupported planning version. Update '
-                'FlyPath before regenerating or exporting it.')
+                self, tr('Cannot Regenerate Mission'),
+                tr('This saved plan uses an unsupported planning version. Update '
+                'FlyPath before regenerating or exporting it.'))
             return
         if action == 'choose_splitting':
             QMessageBox.warning(
-                self, 'Choose Splitting',
-                'This older mission does not record whether splitting was '
-                'enabled. Choose the Splitting checkbox before regenerating it.')
+                self, tr('Choose Splitting'),
+                tr('This older mission does not record whether splitting was '
+                'enabled. Choose the Splitting checkbox before regenerating it.'))
             return
-        self.previewBtn.setText('Preview on Map')
+        self.previewBtn.setText(tr('Preview on Map'))
         saved_visibility = preview_layers.visibility()
         self._on_clear_preview(reset_area=False)
         if self._mission_kind() == 'corridor':
@@ -4043,7 +4059,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self._on_clear_contours()
 
         if reset_area:
-            self.previewBtn.setText('Preview on Map')
+            self.previewBtn.setText(tr('Preview on Map'))
             self._website_link = None
             # Full reset — also stop any active draw (and release the Draw
             # button) and remove the boundary
@@ -4068,7 +4084,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             self.layerCombo.setCurrentIndex(0)
             self.featureCombo.clear()
             self.featureCombo.setVisible(False)
-            self.selectionInfoLabel.setText('— none selected —')
+            self.selectionInfoLabel.setText(tr('— none selected —'))
             self._clear_stats()
 
         self._update_web_buttons()
@@ -4143,7 +4159,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         if not (start and os.path.isdir(start)):
             start = os.path.expanduser('~')
         folder = QFileDialog.getExistingDirectory(
-            self, 'Choose a folder to save FlyPath missions', start
+            self, tr('Choose a folder to save FlyPath missions'), start
         )
         if folder:
             self.localFolderEdit.setText(os.path.normpath(folder))
@@ -4155,14 +4171,15 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             if mission:
                 part = ''
                 if self.splitSpin.value() > 1 and self.splitPartRow.isVisible():
-                    part = f' with {self.splitPartCombo.currentText()}'
+                    part = tr(' with {part}', part=self.splitPartCombo.currentText())
                 self.exportBtn.setText(
-                    f'Replace "{self._mission_display(mission)}"{part} on RC'
+                    tr('Replace "{mission}"{part} on RC',
+                       mission=self._mission_display(mission), part=part)
                 )
             else:
-                self.exportBtn.setText('Send to DJI RC')
+                self.exportBtn.setText(tr('Send to DJI RC'))
         else:
-            self.exportBtn.setText('Export KMZ')
+            self.exportBtn.setText(tr('Export KMZ'))
 
     # ── RC mission picker ──────────────────────────────────────────────────
 
@@ -4174,7 +4191,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
     @staticmethod
     def _mission_label(mission):
         """Full label for the mission dropdown: date + waypoint count."""
-        return f'{mission.get("date_str")}  ·  {mission["n_wp"]} wp'
+        return tr('{date}  ·  {count} wp', date=mission.get('date_str'), count=mission['n_wp'])
 
     def _populate_mission_combo(self, missions):
         self.rcMissionCombo.blockSignals(True)
@@ -4217,7 +4234,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             )
         else:
             self.rcThumbLabel.setPixmap(QPixmap())
-            self.rcThumbLabel.setText('No waypoints to preview')
+            self.rcThumbLabel.setText(tr('No waypoints to preview'))
 
     def _mission_preview_path(self, mission):
         """Rendered preview of the mission's waypoints, cached per mission UUID."""
@@ -4284,9 +4301,9 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         if not (self._current_thumb_full and os.path.isfile(self._current_thumb_full)):
             return
         mission = self.rcMissionCombo.currentData()
-        title = 'Mission preview'
+        title = tr('Mission preview')
         if mission:
-            title = 'Mission  ' + (mission.get('date_str') or mission['uuid'])
+            title = tr('Mission {name}', name=mission.get('date_str') or mission['uuid'])
         _ThumbnailViewer(self._current_thumb_full, title, self).exec()
 
     def _set_rc_target(self, path):
@@ -4295,26 +4312,26 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         self.rcTargetEdit.setText(path or '')
         hint = self.rcStatusLabel.findChild(_HoverFilter)
         if hint is not None:
-            hint._text = _RC_FOLDER_HINT % (path or 'none selected yet')
+            hint._text = _RC_FOLDER_HINT.format(path=path or tr('none selected yet'))
 
     def _warn_no_missions(self):
         """Guidance shown when a waypoint folder is found but holds no missions."""
         QMessageBox.warning(
-            self, 'No Mission to Replace',
-            'The waypoint folder was found, but it has no waypoint mission for '
+            self, tr('No Mission to Replace'),
+            tr('The waypoint folder was found, but it has no waypoint mission for '
             'FlyPath to replace.\n\n'
             'FlyPath can only replace a mission that already exists. To create '
             'one:\n'
             '  1. On the RC, open DJI Fly.\n'
             '  2. Make a waypoint mission (even a 3-point dummy will do) and '
             'save it.\n'
-            '  3. Back here, press Detect RC (or Locate…) again.'
+            '  3. Back here, press Detect RC (or Locate…) again.')
         )
 
     def _on_refresh_rc_missions(self):
         """Auto-detect the RC (removable drive or USB/MTP) and list missions."""
         QApplication.setOverrideCursor(_WaitCursor)
-        self.rcStatusLabel.setText('Scanning for the RC…')
+        self.rcStatusLabel.setText(tr('Scanning for the RC…'))
         QApplication.processEvents()
         drive_path = None
         try:
@@ -4332,33 +4349,35 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         if status == 'ok':
             self._set_rc_target(wp_path)
             self._populate_mission_combo(missions)
-            where = 'drive' if drive_path else 'USB'
+            where = tr('drive') if drive_path else 'USB'
             self.rcStatusLabel.setText(
-                f'DJI RC found ({where}) · {len(missions)} mission(s)'
+                tr('DJI RC found ({where}) · {missions}', where=where,
+                   missions=trn('{n} mission', '{n} missions', len(missions),
+                                n=len(missions)))
             )
             return
 
         self._set_rc_target(wp_path if status == 'no_mission' else None)
         self._populate_mission_combo([])
         if status == 'no_mission':
-            self.rcStatusLabel.setText('RC found · no missions to replace')
+            self.rcStatusLabel.setText(tr('RC found · no missions to replace'))
             self._warn_no_missions()
         elif status == 'not_connected':
             self.rcStatusLabel.setText(
-                'No DJI RC detected · connect it via USB, or use Locate…'
+                tr('No DJI RC detected · connect it via USB, or use Locate…')
             )
             QMessageBox.information(
-                self, 'No DJI RC Detected',
-                'No DJI Remote Controller was found.\n\n'
+                self, tr('No DJI RC Detected'),
+                tr('No DJI Remote Controller was found.\n\n'
                 'FlyPath checked both your drives and USB devices.\n\n'
                 'Connect the RC via USB and enable file transfer on it, then '
                 'press Detect RC. If it still is not found, use Locate… to '
-                'point FlyPath at the waypoint folder yourself.'
+                'point FlyPath at the waypoint folder yourself.')
             )
         else:
-            self.rcStatusLabel.setText('Could not read the RC')
+            self.rcStatusLabel.setText(tr('Could not read the RC'))
             if detail:
-                QMessageBox.warning(self, 'Could Not Read RC', detail)
+                QMessageBox.warning(self, tr('Could Not Read RC'), detail)
 
     def _on_locate_folder_manually(self):
         """
@@ -4383,21 +4402,24 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         if status == 'ok':
             self._set_rc_target(display)
             self._populate_mission_combo(missions)
-            self.rcStatusLabel.setText(f'Folder · {len(missions)} mission(s)')
+            self.rcStatusLabel.setText(
+                tr('Folder · {missions}',
+                   missions=trn('{n} mission', '{n} missions', len(missions),
+                                n=len(missions))))
         elif status == 'no_mission':
             self._set_rc_target(display)
             self._populate_mission_combo([])
-            self.rcStatusLabel.setText('Folder selected · no missions found')
+            self.rcStatusLabel.setText(tr('Folder selected · no missions found'))
             self._warn_no_missions()
         else:
             self._set_rc_target(None)
             self._populate_mission_combo([])
-            self.rcStatusLabel.setText('That folder has no missions')
+            self.rcStatusLabel.setText(tr('That folder has no missions'))
             QMessageBox.warning(
-                self, 'No Missions Found',
-                'No DJI waypoint missions were found in that folder.\n\n'
+                self, tr('No Missions Found'),
+                tr('No DJI waypoint missions were found in that folder.\n\n'
                 'Pick the "waypoint" folder itself (the one that holds the '
-                'mission UUID folders).'
+                'mission UUID folders).')
             )
 
     def _open_in_explorer(self, filepath):
@@ -4445,8 +4467,8 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             drone=registry.get(self.droneModelCombo.currentText()),
             altitude_m=heights[0] if heights else self.altitudeSpin.value(),
             speed_ms=self.speedSpin.value(),
-            finish_action=self.finishActionCombo.currentText(),
-            rc_lost_action=self.rcLostActionCombo.currentText(),
+            finish_action=self.finishActionCombo.currentData(),
+            rc_lost_action=self.rcLostActionCombo.currentData(),
             gimbal_pitch=(pitches[0] if pitches else
                           self.orbitTiltSpin.value() if orbit
                           else self.gimbalAngleSpin.value()),
@@ -4516,25 +4538,25 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         planning_issue = self._planning.export_issue()
         if planning_issue == 'unsupported':
             QMessageBox.warning(
-                self, 'Export Blocked',
-                'This saved plan uses an unsupported planning version. Update '
-                'FlyPath before regenerating or exporting it.')
+                self, tr('Export Blocked'),
+                tr('This saved plan uses an unsupported planning version. Update '
+                'FlyPath before regenerating or exporting it.'))
             return
         if planning_issue == 'regeneration_required':
             QMessageBox.warning(
-                self, 'Regeneration Required',
-                'Choose Preview to regenerate this mission before export.')
+                self, tr('Regeneration Required'),
+                tr('Choose Preview to regenerate this mission before export.'))
             return
         if self.terrainFollowCheck.isChecked() and self._terrain_failed:
             QMessageBox.warning(
-                self, 'Terrain Export Blocked',
-                'Terrain data could not be loaded. Toggle Terrain Follow to retry '
-                'before exporting; FlyPath will not substitute a flat mission.')
+                self, tr('Terrain Export Blocked'),
+                tr('Terrain data could not be loaded. Toggle Terrain Follow to retry '
+                'before exporting; FlyPath will not substitute a flat mission.'))
             return
         if planning_issue == 'validation':
             errors = '\n'.join('• ' + error['message']
                                for error in self._planning.result['validation']['errors'])
-            QMessageBox.warning(self, 'Export Blocked', errors)
+            QMessageBox.warning(self, tr('Export Blocked'), errors)
             return
         mission = 'FlyPath Mission'
         flight_actions = []
@@ -4551,9 +4573,9 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             waypoints, shot_spacing_m = result
             if self.terrainFollowCheck.isChecked() and self._terrain_failed:
                 QMessageBox.warning(
-                    self, 'Terrain Export Blocked',
-                    'Terrain data could not be loaded during mission generation. '
-                    'FlyPath will not substitute a flat mission.')
+                    self, tr('Terrain Export Blocked'),
+                    tr('Terrain data could not be loaded during mission generation. '
+                    'FlyPath will not substitute a flat mission.'))
                 return
 
         drone = registry.get(self.droneModelCombo.currentText())
@@ -4564,17 +4586,17 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         if drone.category == 'enterprise':
             if self._planning.result:
                 QMessageBox.warning(
-                    self, 'Export Blocked',
-                    'DJI Pilot 2 rebuilds mapping routes and cannot serialize this '
+                    self, tr('Export Blocked'),
+                    tr('DJI Pilot 2 rebuilds mapping routes and cannot serialize this '
                     'shared engine result exactly. Enterprise export remains '
-                    'available for legacy terrain and corridor plans.')
+                    'available for legacy terrain and corridor plans.'))
                 return
             if self.destCombo.currentData() == 'rc':
                 QMessageBox.information(
-                    self, 'Enterprise Mission',
-                    'Send to DJI RC is for DJI Fly consumer missions. A '
-                    f'{drone.name} mission exports as a KMZ file: save it, then '
-                    'import it in DJI Pilot 2 on the controller.'
+                    self, tr('Enterprise Mission'),
+                    tr('Send to DJI RC is for DJI Fly consumer missions. A '
+                       '{drone} mission exports as a KMZ file: save it, then '
+                       'import it in DJI Pilot 2 on the controller.', drone=drone.name)
                 )
                 return
             self._export_local_enterprise(mission, waypoints)
@@ -4607,9 +4629,9 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
 
         if self.terrainFollowCheck.isChecked() and self._terrain_failed:
             QMessageBox.warning(
-                self, 'Terrain Export Blocked',
-                'Terrain data could not be loaded while preparing the mission. '
-                'FlyPath will not substitute a flat mission.')
+                self, tr('Terrain Export Blocked'),
+                tr('Terrain data could not be loaded while preparing the mission. '
+                'FlyPath will not substitute a flat mission.'))
             return
 
         if self.destCombo.currentData() == 'rc':
@@ -4619,7 +4641,8 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
                 if part is None:
                     part = 0
                 part_wps, part_heights, _ = missions_h[part]
-                part_name = f'{mission} {part + 1} of {len(missions_h)}'
+                part_name = tr('{name} {part} of {count}',
+                               name=mission, part=part + 1, count=len(missions_h))
                 self._export_rc(part_name, part_wps, shot_spacing_m, part_heights,
                                 flight_actions[part] if flight_actions else None,
                                 flight_settings[part] if flight_settings else None)
@@ -4637,8 +4660,8 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         folder = self.localFolderEdit.text().strip() or os.path.expanduser('~')
         if not os.path.isdir(folder):
             reply = QMessageBox.question(
-                self, 'Create Folder?',
-                f'The folder does not exist:\n{folder}\n\nCreate it?',
+                self, tr('Create Folder?'),
+                tr('The folder does not exist:\n{folder}\n\nCreate it?', folder=folder),
                 _MB_YES | _MB_NO, _MB_YES,
             )
             if reply != _MB_YES:
@@ -4646,13 +4669,13 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             try:
                 os.makedirs(folder, exist_ok=True)
             except Exception as exc:
-                QMessageBox.critical(self, 'Cannot Create Folder', str(exc))
+                QMessageBox.critical(self, tr('Cannot Create Folder'), str(exc))
                 return
 
         filepath, _ = QFileDialog.getSaveFileName(
-            self, 'Export Mission KMZ',
+            self, tr('Export Mission KMZ'),
             os.path.join(folder, self._default_kmz_name()),
-            'DJI Mission File (*.kmz)'
+            tr('DJI Mission File (*.kmz)')
         )
         if not filepath:
             return
@@ -4661,17 +4684,18 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             mission_export.write_kmz(
                 filepath, self._export_settings(), waypoints, mission)
         except Exception as exc:
-            QMessageBox.critical(self, 'Export Failed', str(exc))
+            QMessageBox.critical(self, tr('Export Failed'), str(exc))
             return
 
         QSettings('FlyPath', 'FlyPath').setValue(
             'local_export_dir', os.path.dirname(filepath)
         )
         reply = QMessageBox.information(
-            self, 'Export Complete',
-            'Enterprise mapping mission saved.\n\n'
-            f'Waypoints: {len(waypoints):,}\n\nSaved to:\n{filepath}\n\n'
-            'Import it in DJI Pilot 2 on the controller. Open the folder?',
+            self, tr('Export Complete'),
+            tr('Enterprise mapping mission saved.\n\n'
+               'Waypoints: {count}\n\nSaved to:\n{path}\n\n'
+               'Import it in DJI Pilot 2 on the controller. Open the folder?',
+               count=f'{len(waypoints):,}', path=filepath),
             _MB_YES | _MB_NO, _MB_YES,
         )
         if reply == _MB_YES:
@@ -4685,8 +4709,8 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         folder = self.localFolderEdit.text().strip() or os.path.expanduser('~')
         if not os.path.isdir(folder):
             reply = QMessageBox.question(
-                self, 'Create Folder?',
-                f'The folder does not exist:\n{folder}\n\nCreate it?',
+                self, tr('Create Folder?'),
+                tr('The folder does not exist:\n{folder}\n\nCreate it?', folder=folder),
                 _MB_YES | _MB_NO, _MB_YES,
             )
             if reply != _MB_YES:
@@ -4694,13 +4718,13 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             try:
                 os.makedirs(folder, exist_ok=True)
             except Exception as exc:
-                QMessageBox.critical(self, 'Cannot Create Folder', str(exc))
+                QMessageBox.critical(self, tr('Cannot Create Folder'), str(exc))
                 return
 
         filepath, _ = QFileDialog.getSaveFileName(
-            self, 'Export Mission KMZ',
+            self, tr('Export Mission KMZ'),
             os.path.join(folder, self._default_kmz_name()),
-            'DJI Mission File (*.kmz)'
+            tr('DJI Mission File (*.kmz)')
         )
         if not filepath:
             return
@@ -4711,7 +4735,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
                 filepath, mission, missions, self._export_settings(), actions,
                 flight_settings=flight_settings)
         except Exception as exc:
-            QMessageBox.critical(self, 'Export Failed', str(exc))
+            QMessageBox.critical(self, tr('Export Failed'), str(exc))
             return
         written = [target[0] for target in targets]
 
@@ -4720,18 +4744,21 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         )
         total_wp = sum(len(wps) for _, wps, _, _, _ in targets)
         if n <= 1:
-            saved_text = f'Saved to:\n{written[0]}'
+            saved_text = tr('Saved to:\n{path}', path=written[0])
         else:
             names = '\n'.join('  ' + os.path.basename(p) for p in written)
-            saved_text = f'Saved {n} missions to:\n{folder}\n\n{names}'
+            saved_text = tr('Saved {count} missions to:\n{folder}\n\n{names}',
+                            count=n, folder=folder, names=names)
         if self._mission_type() == 'full':
-            capture_text = 'Capture: automatic (photo per waypoint)'
+            capture_text = tr('Capture: automatic (photo per waypoint)')
         else:
-            capture_text = f'Interval: {self.photoIntervalSpin.value():.1f} s'
+            capture_text = tr('Interval: {seconds:.1f} s',
+                              seconds=self.photoIntervalSpin.value())
         reply = QMessageBox.information(
-            self, 'Export Complete',
-            f'Missions: {n}  ·  Waypoints: {total_wp:,}  ·  {capture_text}\n\n'
-            f'{saved_text}\n\nOpen the folder?',
+            self, tr('Export Complete'),
+            tr('Missions: {count}  ·  Waypoints: {waypoints}  ·  {capture}\n\n'
+               '{saved}\n\nOpen the folder?',
+               count=n, waypoints=f'{total_wp:,}', capture=capture_text, saved=saved_text),
             _MB_YES | _MB_NO, _MB_YES,
         )
         if reply == _MB_YES:
@@ -4743,11 +4770,11 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         target = self.rcMissionCombo.currentData()
         if not target or not self._rc_waypoint_path:
             QMessageBox.information(
-                self, 'No Mission Selected',
-                'Press Detect RC and choose a mission on the RC to '
+                self, tr('No Mission Selected'),
+                tr('Press Detect RC and choose a mission on the RC to '
                 'replace.\n\n'
                 'If the list is empty, create a waypoint mission in DJI Fly '
-                'first, then Detect RC.'
+                'first, then Detect RC.')
             )
             return
 
@@ -4762,7 +4789,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
         if is_mtp:
             # Auto-detected MTP device path: copy over USB via Windows Shell.
             QApplication.setOverrideCursor(_WaitCursor)
-            self._set_info('Sending the mission to the RC, please wait…')
+            self._set_info(tr('Sending the mission to the RC, please wait…'))
             QApplication.processEvents()
         try:
             try:
@@ -4796,16 +4823,17 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             self._load_selected_thumbnail()
             self._update_export_button()
             QMessageBox.information(
-                self, 'Exported to RC',
-                f'Replaced "{label}" on the DJI RC.\n\n'
-                f'Waypoints: {len(waypoints):,}\n'
-                f'UUID: {detail}\n\n'
-                'The preview now shows the mission you just uploaded. '
-                'Reopen DJI Fly on the RC to fly it (DJI refreshes its own '
-                'thumbnail when you open the mission).'
+                self, tr('Exported to RC'),
+                tr('Replaced "{label}" on the DJI RC.\n\n'
+                   'Waypoints: {count}\n'
+                   'UUID: {uuid}\n\n'
+                   'The preview now shows the mission you just uploaded. '
+                   'Reopen DJI Fly on the RC to fly it (DJI refreshes its own '
+                   'thumbnail when you open the mission).',
+                   label=label, count=f'{len(waypoints):,}', uuid=detail)
             )
         else:
-            QMessageBox.critical(self, 'RC Export Failed', detail)
+            QMessageBox.critical(self, tr('RC Export Failed'), detail)
 
     def _copy_kmz_to_mtp(self, rc_dir, uuid_name, tmp_kmz, tmp_dir):
         """Copy an assembled KMZ to its selected MTP mission folder."""
@@ -4883,15 +4911,16 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
                 creationflags=_NO_WINDOW, startupinfo=_STARTUPINFO
             )
         except subprocess.TimeoutExpired:
-            return False, 'Copy to RC timed out. Check the RC is still connected.'
+            return False, tr('Copy to RC timed out. Check the RC is still connected.')
         except Exception as exc:
-            return False, f'Copy error: {exc}'
+            return False, tr('Copy error: {error}', error=exc)
 
         if r2.returncode == 0 and 'OK' in r2.stdout:
             return True, uuid_name
         return False, (
-            f'Copy to RC failed (exit {r2.returncode}).\n'
-            f'{r2.stderr.strip() or r2.stdout.strip()}'
+            tr('Copy to RC failed (exit {code}).\n{detail}',
+               code=r2.returncode,
+               detail=r2.stderr.strip() or r2.stdout.strip())
         )
 
     # ── Helpers ───────────────────────────────────────────────────────────
@@ -4957,16 +4986,16 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
             if self._survey_line is None or self._survey_line_crs is None:
                 if not silent:
                     QMessageBox.information(
-                        self, 'No Corridor',
-                        'Draw a line on the map or select a line layer first.'
+                        self, tr('No Corridor'),
+                        tr('Draw a line on the map or select a line layer first.')
                     )
                 return False
             return True
         if self._survey_polygon is None or self._survey_polygon_crs is None:
             if not silent:
                 QMessageBox.information(
-                    self, 'No Survey Area',
-                    'Draw a polygon on the map or select a polygon layer first.'
+                    self, tr('No Survey Area'),
+                    tr('Draw a polygon on the map or select a polygon layer first.')
                 )
             return False
         return True
@@ -5022,7 +5051,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
                 )
                 waypoints.extend(wps)
         except ValueError as exc:
-            QMessageBox.warning(self, 'Cannot Generate Grid', str(exc))
+            QMessageBox.warning(self, tr('Cannot Generate Grid'), str(exc))
             return None
         waypoints, self._gen_elevations = self._apply_terrain(waypoints)
         return waypoints, shot_spacing_m
@@ -5056,7 +5085,7 @@ class FlyPathDialog(SurveyLifecycleMixin, WebsiteSyncLifecycleMixin, OrbitMixin,
                 densify_spacing=densify,
             )
         except ValueError as exc:
-            QMessageBox.warning(self, 'Cannot Generate Corridor', str(exc))
+            QMessageBox.warning(self, tr('Cannot Generate Corridor'), str(exc))
             return None
         waypoints, self._gen_elevations = self._apply_terrain(waypoints)
         return waypoints, shot_spacing_m

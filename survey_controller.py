@@ -22,7 +22,13 @@ from .map_tools import (
     LineDrawTool, PolygonDrawTool, VertexPickTool, is_flypath_tool, previous_tool,
 )
 from . import preview_layers
-_INFO_IDLE = 'ⓘ  Hover over any field to see what it does.'
+
+if __package__:
+    from .flypath_i18n import tr
+else:
+    from flypath_i18n import tr
+
+_INFO_IDLE = tr('ⓘ  Hover over any field to see what it does.')
 
 try:
     _PolygonGeometry = QgsWkbTypes.GeometryType.PolygonGeometry
@@ -54,9 +60,9 @@ class SurveyLifecycleMixin:
         if checked:
             if self._survey_line is None:
                 QMessageBox.information(
-                    self, 'No Corridor',
-                    'Draw or select a corridor centre line first, then place '
-                    'mission breaks on its vertices.')
+                    self, tr('No Corridor'),
+                    tr('Draw or select a corridor centre line first, then place '
+                    'mission breaks on its vertices.'))
                 self.setBreaksBtn.setChecked(False)
                 return
             canvas = self.iface.mapCanvas()
@@ -69,10 +75,10 @@ class SurveyLifecycleMixin:
             canvas.setMapTool(self._break_tool)
             # Keep the label short so it never widens the panel; the full
             # instructions go to the info bar below.
-            self.setBreaksBtn.setText('Setting Breaks…')
+            self.setBreaksBtn.setText(tr('Setting Breaks…'))
             self._set_info(
-                'Click a centre-line vertex to break the mission there; click it '
-                'again to remove the break. Press Escape when done.')
+                tr('Click a centre-line vertex to break the mission there; click it '
+                'again to remove the break. Press Escape when done.'))
         else:
             self._leave_break_tool()
 
@@ -85,7 +91,7 @@ class SurveyLifecycleMixin:
         elif is_flypath_tool(current):
             canvas.unsetMapTool(current)
         self._break_tool = None
-        self.setBreaksBtn.setText('Set Mission Breaks')
+        self.setBreaksBtn.setText(tr('Set Mission Breaks'))
         self._set_info(_INFO_IDLE)
 
     def _corridor_line_parts(self):
@@ -166,7 +172,7 @@ class SurveyLifecycleMixin:
                                         QgsProject.instance())
         parts = self._corridor_line_parts()
         layer = QgsVectorLayer('Point?crs=EPSG:4326',
-                               'FlyPath — Mission Breaks', 'memory')
+                               tr('FlyPath — Mission Breaks'), 'memory')
         layer.setCustomProperty('flypath_internal', True)
         feats = []
         for (pi, vi) in self._corridor_breaks:
@@ -215,7 +221,10 @@ class SurveyLifecycleMixin:
         """
         corridor = self._mission_kind() == 'corridor'
         target_geom = _LineGeometry if corridor else _PolygonGeometry
-        noun = 'line' if corridor else 'polygon'
+        if corridor:
+            singular, plural, title_plural = tr('line'), tr('lines'), tr('Lines')
+        else:
+            singular, plural, title_plural = tr('polygon'), tr('polygons'), tr('Polygons')
         candidates = []
         for layer in QgsProject.instance().mapLayers().values():
             if (not hasattr(layer, 'wkbType') or
@@ -228,18 +237,20 @@ class SurveyLifecycleMixin:
 
         if len(candidates) == 0:
             QMessageBox.information(
-                self, 'Nothing Selected',
-                f'No {noun} is selected in QGIS.\n\n'
-                f'Select a single {noun} with the QGIS selection tool and try again.'
+                self, tr('Nothing Selected'),
+                tr('No {kind} is selected in QGIS.\n\n'
+                   'Select a single {kind} with the QGIS selection tool and try again.',
+                   kind=singular)
             )
             return
 
         if len(candidates) > 1:
             QMessageBox.warning(
-                self, f'Multiple {noun.capitalize()}s Selected',
-                f'{len(candidates)} {noun}s are selected across one or more layers.\n\n'
-                f'FlyPath supports one survey {noun} at a time.\n'
-                f'Select exactly one {noun} and try again.'
+                self, tr('Multiple {kind} Selected', kind=title_plural),
+                tr('{count} {kind} are selected across one or more layers.\n\n'
+                   'FlyPath supports one survey {single} at a time.\n'
+                   'Select exactly one {single} and try again.',
+                   count=len(candidates), kind=plural, single=singular)
             )
             return
 
@@ -274,7 +285,8 @@ class SurveyLifecycleMixin:
 
         self._set_survey_geometry(feat.geometry(), layer.crs(),
                                   layer_id=layer.id(), fid=fid)
-        self.selectionInfoLabel.setText('%s  ·  FID %s' % (layer.name(), fid))
+        self.selectionInfoLabel.setText(
+            tr('{layer}  ·  FID {fid}', layer=layer.name(), fid=fid))
 
     def _on_layer_changed(self):
         layer_id = self.layerCombo.currentData()
@@ -352,8 +364,8 @@ class SurveyLifecycleMixin:
     def _feature_label(self, layer, feat, name_field):
         """Human label for a feature row in the combo."""
         fid = feat.id()
-        return (f'FID {fid}  ·  {feat[name_field]}'
-                if name_field else f'FID {fid}')
+        return (tr('FID {fid}  ·  {name}', fid=fid, name=feat[name_field])
+                if name_field else tr('FID {fid}', fid=fid))
 
     def _populate_feature_combo(self, layer):
         """Populate (or refresh) the feature combo for the given layer.
@@ -376,7 +388,7 @@ class SurveyLifecycleMixin:
 
         # 0 (or unknown-and-empty): show a None entry, no survey area
         if count == 0:
-            self.featureCombo.addItem('— none —', None)
+            self.featureCombo.addItem(tr('— none —'), None)
             self.featureCombo.setCurrentIndex(0)
             self.featureCombo.blockSignals(False)
             self._clear_survey_from_feature()
@@ -396,7 +408,7 @@ class SurveyLifecycleMixin:
             return
 
         # Several features: prompt the user to pick one
-        self.featureCombo.addItem('— select a feature —', None)
+        self.featureCombo.addItem(tr('— select a feature —'), None)
         for feat in layer.getFeatures():
             self.featureCombo.addItem(self._feature_label(layer, feat, name_field),
                                       feat.id())
@@ -504,8 +516,8 @@ class SurveyLifecycleMixin:
         da.setEllipsoid('WGS84')
         length_m = da.measureLength(self._survey_line)
         if length_m >= 1000.0:
-            return f'{length_m / 1000.0:.2f} km'
-        return f'{length_m:.0f} m'
+            return tr('{length:.2f} km', length=length_m / 1000.0)
+        return tr('{length:.0f} m', length=length_m)
 
     def _set_survey_polygon(self, geom, crs, layer_id=None, fid=None):
         self._on_clear_preview(reset_area=False)   # clear old flight path
@@ -522,7 +534,7 @@ class SurveyLifecycleMixin:
                 self._selected_layer_id = layer_id
                 self.iface.mapCanvas().refresh()
         area_ha = self._area_ha()
-        self.areaLabel.setText(f'{area_ha:.2f} ha')
+        self.areaLabel.setText(tr('{area:.2f} ha', area=area_ha))
         self._update_stats()
         if self._mission_kind() == 'panorama':
             # Show the panorama points at once, as when they are clicked.
@@ -542,13 +554,13 @@ class SurveyLifecycleMixin:
     def _check_area_advisory(self, area_ha):
         if area_ha > 200:
             QMessageBox.information(
-                self, 'Large Survey Area',
-                f'The selected area is {area_ha:.0f} ha.\n\n'
-                'A survey this large needs more than one battery. Use the '
-                'Split Missions field in Flight Parameters to divide it into '
-                'separate missions, one per battery (it defaults to the '
-                'estimated Batteries count), then export and fly each part in '
-                'turn.'
+                self, tr('Large Survey Area'),
+                tr('The selected area is {area:.0f} ha.\n\n'
+                   'A survey this large needs more than one battery. Use the '
+                   'Split Missions field in Flight Parameters to divide it into '
+                   'separate missions, one per battery (it defaults to the '
+                   'estimated Batteries count), then export and fly each part in '
+                   'turn.', area=area_ha)
             )
 
     @staticmethod
@@ -567,9 +579,9 @@ class SurveyLifecycleMixin:
         if checked:
             if self._survey_polygon is not None:
                 reply = QMessageBox.question(
-                    self, 'Replace Survey Area?',
-                    'A survey area is already defined.\n\n'
-                    'Do you want to discard it and draw a new polygon?',
+                    self, tr('Replace Survey Area?'),
+                    tr('A survey area is already defined.\n\n'
+                    'Do you want to discard it and draw a new polygon?'),
                     _MB_YES | _MB_NO,
                     _MB_NO,
                 )
@@ -596,7 +608,7 @@ class SurveyLifecycleMixin:
             self._draw_tool.polygon_completed.connect(self._on_polygon_drawn)
             self._draw_tool.drawing_cancelled.connect(self._on_drawing_cancelled)
             canvas.setMapTool(self._draw_tool)
-            self.drawPolygonBtn.setText('Drawing… right-click to finish')
+            self.drawPolygonBtn.setText(tr('Drawing… right-click to finish'))
         else:
             self._cancel_draw_tool()
 
@@ -617,7 +629,7 @@ class SurveyLifecycleMixin:
 
     def _on_polygon_drawn(self, geom):
         self.drawPolygonBtn.setChecked(False)
-        self.drawPolygonBtn.setText('Draw Polygon on Map')
+        self.drawPolygonBtn.setText(tr('Draw Polygon on Map'))
         self._leave_draw_tool()
         crs = self.iface.mapCanvas().mapSettings().destinationCrs()
         self._show_drawn_polygon(geom, crs)
@@ -635,7 +647,7 @@ class SurveyLifecycleMixin:
         g.transform(xform)
 
         layer = QgsVectorLayer('Polygon?crs=EPSG:4326',
-                               'FlyPath — Survey Area', 'memory')
+                               tr('FlyPath — Survey Area'), 'memory')
         layer.setCustomProperty('flypath_internal', True)
         feat = QgsFeature()
         feat.setGeometry(g)
@@ -656,7 +668,7 @@ class SurveyLifecycleMixin:
         preview_layers.register(layer, kind='survey')
         preview_layers.restore_visibility(saved)
         self._survey_area_layer_id = layer.id()
-        self.editPolygonBtn.setText('✎ Edit')
+        self.editPolygonBtn.setText(tr('✎ Edit'))
         self.editPolygonBtn.setVisible(True)
         self.removePolygonBtn.setVisible(True)
         self.iface.mapCanvas().refresh()
@@ -666,9 +678,9 @@ class SurveyLifecycleMixin:
         if checked:
             if self._survey_line is not None:
                 reply = QMessageBox.question(
-                    self, 'Replace Corridor?',
-                    'A corridor centre line is already defined.\n\n'
-                    'Do you want to discard it and draw a new line?',
+                    self, tr('Replace Corridor?'),
+                    tr('A corridor centre line is already defined.\n\n'
+                    'Do you want to discard it and draw a new line?'),
                     _MB_YES | _MB_NO,
                     _MB_NO,
                 )
@@ -694,7 +706,7 @@ class SurveyLifecycleMixin:
             self._draw_tool.line_completed.connect(self._on_line_drawn)
             self._draw_tool.drawing_cancelled.connect(self._on_drawing_cancelled)
             canvas.setMapTool(self._draw_tool)
-            self.drawPolygonBtn.setText('Drawing… right-click to finish')
+            self.drawPolygonBtn.setText(tr('Drawing… right-click to finish'))
         else:
             self._cancel_draw_tool()
 
@@ -717,7 +729,7 @@ class SurveyLifecycleMixin:
         g.transform(xform)
 
         layer = QgsVectorLayer('LineString?crs=EPSG:4326',
-                               'FlyPath — Corridor Centre Line', 'memory')
+                               tr('FlyPath — Corridor Centre Line'), 'memory')
         layer.setCustomProperty('flypath_internal', True)
         feat = QgsFeature()
         feat.setGeometry(g)
@@ -738,7 +750,7 @@ class SurveyLifecycleMixin:
         preview_layers.register(layer, kind='survey')
         preview_layers.restore_visibility(saved)
         self._survey_area_layer_id = layer.id()
-        self.editPolygonBtn.setText('✎ Edit')
+        self.editPolygonBtn.setText(tr('✎ Edit'))
         self.editPolygonBtn.setVisible(True)
         self.removePolygonBtn.setVisible(True)
         self.iface.mapCanvas().refresh()
@@ -782,7 +794,7 @@ class SurveyLifecycleMixin:
         band.transform(from_utm)
 
         layer = QgsVectorLayer('Polygon?crs=EPSG:4326',
-                               'FlyPath — Corridor Area (assumed)', 'memory')
+                               tr('FlyPath — Corridor Area (assumed)'), 'memory')
         layer.setCustomProperty('flypath_internal', True)
         feat = QgsFeature()
         feat.setGeometry(band)
@@ -820,7 +832,7 @@ class SurveyLifecycleMixin:
         self._survey_polygon_crs = layer.crs()
         self._on_clear_preview(reset_area=False)
         area_ha = self._area_ha()
-        self.areaLabel.setText(f'{area_ha:.2f} ha')
+        self.areaLabel.setText(tr('{area:.2f} ha', area=area_ha))
         self._update_stats()
 
     def _on_survey_area_geometry_changed(self, _fid, geom):
@@ -840,7 +852,7 @@ class SurveyLifecycleMixin:
         self._survey_polygon     = geom
         self._survey_polygon_crs = layer.crs()
         self._on_clear_preview(reset_area=False)
-        self.areaLabel.setText(f'{self._area_ha():.2f} ha')
+        self.areaLabel.setText(tr('{area:.2f} ha', area=self._area_ha()))
         self._update_stats()
 
     def _on_remove_drawn_polygon(self):
@@ -887,7 +899,7 @@ class SurveyLifecycleMixin:
                 preview_layers.remove([self._survey_area_layer_id])
             self._survey_area_layer_id = None
         self.editPolygonBtn.setVisible(False)
-        self.editPolygonBtn.setText('✎ Edit')
+        self.editPolygonBtn.setText(tr('✎ Edit'))
         self.removePolygonBtn.setVisible(False)
 
     def _on_edit_polygon(self):
@@ -915,18 +927,21 @@ class SurveyLifecycleMixin:
                 self.iface.actionNodeTool().trigger()   # older QGIS name
             except AttributeError:
                 pass
-        self.editPolygonBtn.setText('✓ Finish')
-        noun = ('corridor centre line' if self._mission_kind() == 'corridor'
-                else 'survey polygon')
-        self._set_info(
-            f'Editing the {noun}: drag a vertex to move it, click an '
-            'edge to add one, or select a vertex and press Delete to remove '
-            'it. Click Finish when done.'
-        )
+        self.editPolygonBtn.setText(tr('✓ Finish'))
+        if self._mission_kind() == 'corridor':
+            self._set_info(
+                tr('Editing the corridor centre line: drag a vertex to move it, click an '
+                   'edge to add one, or select a vertex and press Delete to remove '
+                   'it. Click Finish when done.'))
+        else:
+            self._set_info(
+                tr('Editing the survey polygon: drag a vertex to move it, click an '
+                   'edge to add one, or select a vertex and press Delete to remove '
+                   'it. Click Finish when done.'))
 
     def _finish_polygon_edit(self):
         """Reset the Edit button, restore the previous map tool and info bar."""
-        self.editPolygonBtn.setText('✎ Edit')
+        self.editPolygonBtn.setText(tr('✎ Edit'))
         tool = getattr(self, '_prev_tool_before_edit', None)
         if tool is not None:
             self.iface.mapCanvas().setMapTool(tool)

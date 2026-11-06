@@ -15,6 +15,11 @@ on-hardware verification with an actual M4E + DJI Pilot 2.
 
 import time
 
+try:
+    from ..flypath_i18n import tr
+except ImportError:  # tests import wpml as a top-level package
+    from flypath_i18n import tr
+
 from .base import package_kmz
 
 _NS = 'http://www.dji.com/wpmz/1.0.6'
@@ -41,9 +46,9 @@ def write(drone, spec, filepath):
     ValueError  if spec has no survey polygon or no waypoints
     """
     if not spec.polygon:
-        raise ValueError('Enterprise mapping missions need a survey polygon.')
+        raise ValueError(tr('Enterprise mapping missions need a survey polygon.'))
     if not spec.waypoints:
-        raise ValueError('No waypoints provided — define a survey area first.')
+        raise ValueError(tr('No waypoints provided — define a survey area first.'))
 
     ts_ms = int(spec.create_time_ms) if spec.create_time_ms else int(time.time() * 1000)
     cam = drone.camera

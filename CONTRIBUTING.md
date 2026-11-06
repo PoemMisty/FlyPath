@@ -54,6 +54,7 @@ maintainer (Salar Ghaffarian) only.
    python tools/vendor_engine.py
    python -m pyflakes $(git ls-files '*.py')
    python tools/check_qt6_enums.py
+   python tools/update_translations.py --check
    python -m pytest -q tests
    ```
 
@@ -114,6 +115,27 @@ python tools/build_plugin.py
 
 Fetching and building require network access. The installed ZIP includes the
 engine and continues to work offline.
+
+## Translations
+
+The source language is English. User-facing text goes through
+`flypath_i18n.tr()` (or `trn()` for a singular/plural pair), and the catalog is
+`i18n/FlyPath_<locale>.ts`, Qt's XML format:
+
+```bash
+python tools/update_translations.py --lang zh_CN
+python tools/update_translations.py --check
+```
+
+Edit the `.ts` file with Qt Linguist, Weblate or Crowdin, then mark finished
+entries as translated (remove `type="unfinished"`). `--compile` builds `.qm`
+files with `lrelease`; the plugin also reads `.ts` directly, so lrelease is
+optional for development. Commit both the `.ts` source and any `.qm` you build.
+
+Do not translate stable data: drone and camera model names, WordPress/WPML and
+KMZ format terms, URLs, settings keys, or the English action labels used by the
+website contract. Add new UI text as a literal inside `tr()` so it can be
+extracted; variable sources are rejected by `--check`.
 
 ## Guidelines
 

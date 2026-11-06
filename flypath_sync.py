@@ -29,6 +29,11 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+if __package__:
+    from .flypath_i18n import tr, trn
+else:
+    from flypath_i18n import tr, trn
+
 DEFAULT_BASE_URL = 'https://flypath.io'
 
 # The website stores at most this many points per list (its own
@@ -49,10 +54,10 @@ TIMEOUT_S = 20
 SYNC_API_VERSION = 1
 SYNC_VERSION_HEADER = 'X-FlyPath-Sync-Version'
 SUPPORTED_MAPPING_STYLES = ('2d', 'corridor', 'orbit', 'oblique', 'panorama')
-SYNC_MISMATCH_MESSAGE = ('Website sync is incompatible with this FlyPath plugin. '
-                         'Update the plugin to reconnect.')
+SYNC_MISMATCH_MESSAGE = tr('Website sync is incompatible with this FlyPath plugin. '
+                           'Update the plugin to reconnect.')
 
-NO_TOKEN_MESSAGE = (           # nosec B105
+NO_TOKEN_MESSAGE = tr(           # nosec B105
     'No FlyPath token set.\n\n'
     'Sign in at flypath.io, choose Plugin token in your account menu, generate a token, and paste '
     'it here.'
@@ -77,9 +82,10 @@ class FlypathSyncError(Exception):
     """A push/pull failed. `message` is written to be shown to the user as-is;
     `status` is the HTTP status when the server answered, else None."""
 
-    def __init__(self, message, status=None):
+    def __init__(self, message, status=None, kind=None):
         super().__init__(message)
         self.status = status
+        self.kind = kind
 
 
 def label_for_code(website_codes, code):
@@ -111,9 +117,9 @@ def account_key(base_url, token):
 def update_mission(base_url, token, mission_id, revision, payload):
     """Update a linked mission; 409 leaves both versions intact."""
     if type(mission_id) is not int or mission_id < 1:
-        raise FlypathSyncError('This mission has no usable FlyPath id. Load it again.')
+        raise FlypathSyncError(tr('This mission has no usable FlyPath id. Load it again.'))
     if type(revision) is not int or revision < 1:
-        raise FlypathSyncError('This mission has no revision. Update the website and load it again before saving changes.')
+        raise FlypathSyncError(tr('This mission has no revision. Update the website and load it again before saving changes.'))
     return _call(base_url, token, '%s/' % mission_id,
                  data={**payload, 'revision': revision}, method='PATCH')
 
@@ -130,25 +136,25 @@ def list_library(base_url, token):
     missions = payload.get('missions')
     projects = payload.get('projects', [])
     if not isinstance(projects, list):
-        raise FlypathSyncError('FlyPath sent an invalid project list.')
+        raise FlypathSyncError(tr('FlyPath sent an invalid project list.'))
     project_ids = set()
     for project in projects:
         if (not isinstance(project, dict) or type(project.get('id')) is not int
                 or project['id'] < 1 or project['id'] in project_ids
                 or not isinstance(project.get('name'), str)):
-            raise FlypathSyncError('FlyPath sent invalid project metadata.')
+            raise FlypathSyncError(tr('FlyPath sent invalid project metadata.'))
         project_ids.add(project['id'])
     if not isinstance(missions, list):
-        raise FlypathSyncError('FlyPath sent an invalid mission list.')
+        raise FlypathSyncError(tr('FlyPath sent an invalid mission list.'))
     for mission in missions:
         if not isinstance(mission, dict) or type(mission.get('id')) is not int or mission['id'] < 1:
-            raise FlypathSyncError('FlyPath listed a mission without a usable id.')
+            raise FlypathSyncError(tr('FlyPath listed a mission without a usable id.'))
         for key in ('name', 'display_name', 'updated_at'):
             if mission.get(key) is not None and not isinstance(mission[key], str):
-                raise FlypathSyncError('FlyPath sent invalid mission metadata.')
+                raise FlypathSyncError(tr('FlyPath sent invalid mission metadata.'))
         project_id = mission.get('project_id')
         if project_id is not None and (type(project_id) is not int or project_id not in project_ids):
-            raise FlypathSyncError('FlyPath listed a mission with an invalid project.')
+            raise FlypathSyncError(tr('FlyPath listed a mission with an invalid project.'))
     return {'missions': missions, 'projects': projects}
 
 
@@ -156,18 +162,18 @@ def get_mission(base_url, token, mission_id):
     """One mission's full plan: {'id', 'name', 'drone_model', 'polygon',
     'waypoints', 'settings', 'estimates'}."""
     if type(mission_id) is not int or mission_id < 1:
-        raise FlypathSyncError('FlyPath listed a mission without a usable id.')
+        raise FlypathSyncError(tr('FlyPath listed a mission without a usable id.'))
     payload = _call(base_url, token, '%s/' % mission_id)
     mission = payload.get('mission')
     if not isinstance(mission, dict):
-        raise FlypathSyncError('FlyPath sent a mission this plugin could not read.')
+        raise FlypathSyncError(tr('FlyPath sent a mission this plugin could not read.'))
     validate_mission(mission)
     return mission
 
 
 def _validate_json(value, depth=0):
     if depth > MAX_JSON_DEPTH:
-        raise ValueError('JSON nesting is too deep')
+        raise ValueError(tr('JSON nesting is too deep'))
     if isinstance(value, dict):
         for item in value.values():
             _validate_json(item, depth + 1)
@@ -175,7 +181,7 @@ def _validate_json(value, depth=0):
         for item in value:
             _validate_json(item, depth + 1)
     elif isinstance(value, float) and not math.isfinite(value):
-        raise ValueError('JSON numbers must be finite')
+        raise ValueError(tr('JSON numbers must be finite'))
 
 
 def validate_mission(mission):
@@ -218,7 +224,7 @@ def validate_mission(mission):
         if not isinstance(settings, dict):
             raise ValueError()
         if settings.get('mapping_style', '2d') not in SUPPORTED_MAPPING_STYLES:
-            raise FlypathSyncError('Unsupported in this plugin. Open on website to edit this mission.')
+            raise FlypathSyncError(tr('Unsupported in this plugin. Open on website to edit this mission.'))
         enums = {'capture_mode': ('semi', 'full'),
                  'oblique_pattern': ('fast', 'full'),
                  'panorama_layout': ('points', 'area'),
@@ -295,7 +301,7 @@ def validate_mission(mission):
                     or settings.get('cross_hatch', False)):
                 raise ValueError()
     except (ValueError, TypeError, OverflowError, RecursionError):
-        raise FlypathSyncError('FlyPath sent invalid mission geometry or settings.') from None
+        raise FlypathSyncError(tr('FlyPath sent invalid mission geometry or settings.')) from None
 
 
 # ── QGIS credential vault (lazy imports keep network tests QGIS-free) ──
@@ -359,7 +365,7 @@ def _root(base_url):
             raise ValueError()
         return 'https://' + host + (':%d' % port if port not in (None, 443) else '')
     except (ValueError, UnicodeError):
-        raise FlypathSyncError('The FlyPath address must be a valid HTTPS origin without credentials, path, query or fragment.') from None
+        raise FlypathSyncError(tr('The FlyPath address must be a valid HTTPS origin without credentials, path, query or fragment.')) from None
 
 
 def _api_url(base_url, path):
@@ -377,7 +383,7 @@ _opener = urllib.request.build_opener(_NoRedirect())
 def _read_json(response, limit):
     body = response.read(limit + 1)
     if len(body) > limit:
-        raise ValueError('response exceeds the size limit')
+        raise ValueError(tr('response exceeds the size limit'))
     payload = json.loads(body.decode('utf-8'))
     _validate_json(payload)
     return payload
@@ -401,7 +407,7 @@ def _call(base_url, token, path, data=None, method=None):
         try:
             body = json.dumps(data, allow_nan=False).encode('utf-8')
         except (ValueError, TypeError, RecursionError):
-            raise FlypathSyncError('This mission could not be encoded as JSON.') from None
+            raise FlypathSyncError(tr('This mission could not be encoded as JSON.')) from None
         headers['Content-Type'] = 'application/json'
     request = urllib.request.Request(url, data=body, headers=headers,
                                      method=method or ('POST' if body else 'GET'))
@@ -417,17 +423,18 @@ def _call(base_url, token, path, data=None, method=None):
         raise FlypathSyncError(message.replace(token.strip(), '[redacted]'), status=exc.code) from None
     except urllib.error.URLError as exc:
         raise FlypathSyncError(
-            'Could not reach FlyPath (%s).\n\nCheck your internet connection '
-            'and try again.' % str(exc.reason).replace(token.strip(), '[redacted]')) from None
+            tr('Could not reach FlyPath ({error}).\n\nCheck your internet connection '
+               'and try again.',
+               error=str(exc.reason).replace(token.strip(), '[redacted]'))) from None
     except (OSError, ValueError, RecursionError, http.client.HTTPException) as exc:
-        raise FlypathSyncError('FlyPath did not answer properly (%s).' %
-                               str(exc).replace(token.strip(), '[redacted]')) from None
+        raise FlypathSyncError(tr('FlyPath did not answer properly ({error}).',
+                                  error=str(exc).replace(token.strip(), '[redacted]'))) from None
 
     if server_version != str(SYNC_API_VERSION):
         raise FlypathSyncError(SYNC_MISMATCH_MESSAGE, status=426)
     if not isinstance(payload, dict) or payload.get('ok') is not True:
         raise FlypathSyncError(
-            (_error_text(payload) or 'FlyPath rejected the request.').replace(token.strip(), '[redacted]'))
+            (_error_text(payload) or tr('FlyPath rejected the request.')).replace(token.strip(), '[redacted]'))
     return payload
 
 
@@ -449,17 +456,19 @@ def _server_message(exc):
         duration = []
         minutes, remainder = divmod(seconds, 60)
         if minutes:
-            duration.append('%s minute%s' % (minutes, '' if minutes == 1 else 's'))
+            duration.append(trn('{n} minute', '{n} minutes', minutes, n=minutes))
         if remainder:
-            duration.append('%s second%s' % (remainder, '' if remainder == 1 else 's'))
-        wait = 'Wait %s before retrying.' % ' '.join(duration) if duration else 'Wait a moment, then retry.'
-        return '%s %s' % (text or 'Sync is temporarily paused.', wait)
+            duration.append(trn('{n} second', '{n} seconds', remainder, n=remainder))
+        wait = tr('Wait {duration} before retrying.', duration=' '.join(duration)) \
+            if duration else tr('Wait a moment, then retry.')
+        return tr('{message} {wait}',
+                  message=text or tr('Sync is temporarily paused.'), wait=wait)
     if text:
         return text
     if exc.code == 401:
-        return ('FlyPath rejected the token. Generate a new one on the website '
-                'Plugin token dialog and paste it in again.')
-    return 'FlyPath returned an error (HTTP %s).' % exc.code
+        return tr('FlyPath rejected the token. Generate a new one on the website '
+                  'Plugin token dialog and paste it in again.')
+    return tr('FlyPath returned an error (HTTP {code}).', code=exc.code)
 
 
 def _error_text(payload):

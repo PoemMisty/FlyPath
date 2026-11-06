@@ -9,6 +9,7 @@ from . import preview_layers
 from .flypath_dialog import FlyPathDialog, style_tabs
 from .flypath_library import MissionLibrary
 from .about_tab import AboutTab
+from .flypath_i18n import tr, uninstall
 
 try:
     _DockLeft  = Qt.DockWidgetArea.LeftDockWidgetArea
@@ -36,7 +37,7 @@ class FlyPath:
         icon = QIcon(os.path.join(self.plugin_dir, 'icon.png'))
         self.action = QAction(icon, 'FlyPath', self.iface.mainWindow())
         self.action.setCheckable(True)
-        self.action.setToolTip('Open FlyPath mission planner')
+        self.action.setToolTip(tr('Open FlyPath mission planner'))
         self.action.triggered.connect(self.toggle_panel)
 
         self.iface.addToolBarIcon(self.action)
@@ -51,11 +52,11 @@ class FlyPath:
         self.tabs = QTabWidget(self.dock_widget)
         self.panel = FlyPathDialog(self.iface, self.tabs)
         self.tabs.setStyleSheet(self.panel.styleSheet())
-        self.tabs.addTab(self.panel, 'Planner')
+        self.tabs.addTab(self.panel, tr('Planner'))
         library = MissionLibrary(self.panel, parent=self.tabs)
         self.panel._mission_library = library
-        self.tabs.addTab(library, 'My missions')
-        self.tabs.addTab(AboutTab(self.tabs), 'About')
+        self.tabs.addTab(library, tr('My missions'))
+        self.tabs.addTab(AboutTab(self.tabs), tr('About'))
         library.missionOpened.connect(lambda: self.tabs.setCurrentWidget(self.panel))
         self.tabs.currentChanged.connect(
             lambda index: library.refresh() if self.tabs.widget(index) is library else None)
@@ -88,6 +89,7 @@ class FlyPath:
             self.iface.mainWindow().removeDockWidget(self.dock_widget)
             self.dock_widget.setParent(None)
             self.dock_widget = None
+        uninstall()
 
     def _remove_stale_layers(self, *_):
         QTimer.singleShot(0, preview_layers.remove_stale)

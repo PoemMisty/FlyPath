@@ -12,6 +12,11 @@ from .flypath_engine.orbit import plan_orbit
 from .flypath_engine.panorama import AUTO_SPACING_PER_ALTITUDE, plan_panorama
 from .flypath_engine.profiles import PROFILE_VERSION
 
+if __package__:
+    from .flypath_i18n import tr
+else:
+    from flypath_i18n import tr
+
 
 PlanningError = _PlanningError
 # Saved Fast oblique results use their original engine geometry during validation.
@@ -206,29 +211,29 @@ def consume_result(request, result, *, require_supported=True,
                    legacy_waypoints=None):
     """Return ordered flight dictionaries after checking saved-result integrity."""
     if not isinstance(result, dict) or not isinstance(request, dict):
-        raise ValueError('The saved planning request or result is missing.')
+        raise ValueError(tr('The saved planning request or result is missing.'))
     if request.get('contract_version') == 2 and result.get('engine_version') not in CONTRACT_2_ENGINE_VERSIONS:
-        raise ValueError('This saved engine version does not support the planning contract.')
+        raise ValueError(tr('This saved engine version does not support the planning contract.'))
     if require_supported and (request.get('contract_version') not in SUPPORTED_CONTRACT_VERSIONS
                               or result.get('contract_version') != request.get('contract_version')):
-        raise ValueError('This saved planning contract version is not supported.')
+        raise ValueError(tr('This saved planning contract version is not supported.'))
     if require_supported and result.get('engine_version') not in SUPPORTED_ENGINE_VERSIONS:
-        raise ValueError('This saved engine version is not supported.')
+        raise ValueError(tr('This saved engine version is not supported.'))
     if request.get('operation') == 'plan_orbit' and (
             result.get('operation') != 'plan_orbit'
             or not _orbit_capable(result.get('engine_version'))):
-        raise ValueError('This saved orbit engine version is not supported.')
+        raise ValueError(tr('This saved orbit engine version is not supported.'))
     oblique = request.get('operation') == 'plan_oblique'
     if oblique and (result.get('operation') != 'plan_oblique'
                     or not _orbit_capable(result.get('engine_version'), OBLIQUE_MIN_ENGINE_VERSION)):
-        raise ValueError('This saved oblique engine version is not supported.')
+        raise ValueError(tr('This saved oblique engine version is not supported.'))
     panorama = request.get('operation') == 'plan_panorama'
     if panorama and (result.get('operation') != 'plan_panorama'
                      or not _orbit_capable(result.get('engine_version'), PANORAMA_MIN_ENGINE_VERSION)):
-        raise ValueError('This saved panorama engine version is not supported.')
+        raise ValueError(tr('This saved panorama engine version is not supported.'))
     if any(result.get(key) != request.get(key)
            for key in ('profile_version', 'drone_profile_id')):
-        raise ValueError('The saved planning result does not match its request.')
+        raise ValueError(tr('The saved planning result does not match its request.'))
     capture = result.get('capture')
     statistics = result.get('statistics')
     validation = result.get('validation')
@@ -236,7 +241,7 @@ def consume_result(request, result, *, require_supported=True,
             or capture.get('mode') != request.get('capture', {}).get('mode')
             or not _finite(capture.get('profile_interval_s'), positive=True)
             or not _finite(capture.get('shot_spacing_m'), positive=True)):
-        raise ValueError('The saved capture result is invalid.')
+        raise ValueError(tr('The saved capture result is invalid.'))
     numeric_stats = ('survey_area_m2', 'route_distance_m', 'known_distance_m',
                      'known_estimated_seconds')
     integer_stats = ('photo_count', 'strip_count', 'waypoint_count', 'battery_count')
@@ -246,17 +251,17 @@ def consume_result(request, result, *, require_supported=True,
                    for key in integer_stats)
             or type(statistics.get('estimates_complete')) is not bool
             or statistics.get('photo_count_kind') not in ('actions', 'estimate')):
-        raise ValueError('The saved planning statistics are invalid.')
+        raise ValueError(tr('The saved planning statistics are invalid.'))
     errors = validation.get('errors') if isinstance(validation, dict) else None
     if (type(validation.get('export_allowed')) is not bool
             if isinstance(validation, dict) else True) or not isinstance(errors, list) or any(
                 not isinstance(error, dict) or not isinstance(error.get('code'), str)
                 or not isinstance(error.get('message'), str) for error in errors):
-        raise ValueError('The saved export validation is invalid.')
+        raise ValueError(tr('The saved export validation is invalid.'))
     route = result.get('route')
     rows = route.get('waypoints') if isinstance(route, dict) else None
     if not isinstance(rows, list) or not rows:
-        raise ValueError('The saved planning result has no route.')
+        raise ValueError(tr('The saved planning result has no route.'))
     points = []
     for index, row in enumerate(rows):
         position = row.get('position') if isinstance(row, dict) else None
@@ -268,7 +273,7 @@ def consume_result(request, result, *, require_supported=True,
                 or not -90 <= position['latitude_deg'] <= 90
                 or not math.isfinite(position['longitude_deg'])
                 or not -180 <= position['longitude_deg'] <= 180):
-            raise ValueError('The saved planning route is invalid.')
+            raise ValueError(tr('The saved planning route is invalid.'))
         points.append((float(position['longitude_deg']),
                        float(position['latitude_deg'])))
     if legacy_waypoints:
@@ -276,7 +281,7 @@ def consume_result(request, result, *, require_supported=True,
         if len(expected) != len(points) or any(
                 abs(a - b) > 1e-9 for pair, saved in zip(points, expected)
                 for a, b in zip(pair, saved)):
-            raise ValueError('The saved route does not match the planning result.')
+            raise ValueError(tr('The saved route does not match the planning result.'))
     # Orbit routes carry a heading per waypoint (facing the centre); 2D does not.
     # Oblique passes hold one heading each, and its nadir pass has none.
     raw_headings = [row.get('heading_deg') for row in rows]
@@ -284,18 +289,18 @@ def consume_result(request, result, *, require_supported=True,
     if any(value is not None for value in raw_headings):
         if any((value is not None or not oblique)
                and (not _finite(value) or not -180 <= value <= 180) for value in raw_headings):
-            raise ValueError('The saved route headings are invalid.')
+            raise ValueError(tr('The saved route headings are invalid.'))
         headings = [None if value is None else float(value) for value in raw_headings]
     # Multi-ring orbits also give each waypoint its own altitude.
     raw_altitudes = [row.get('altitude_m') for row in rows]
     altitudes = None
     if any(value is not None for value in raw_altitudes):
         if any(not _finite(value, positive=True) or value > 500 for value in raw_altitudes):
-            raise ValueError('The saved route altitudes are invalid.')
+            raise ValueError(tr('The saved route altitudes are invalid.'))
         altitudes = [float(value) for value in raw_altitudes]
     flights = result.get('flights')
     if not isinstance(flights, list) or not flights:
-        raise ValueError('The saved planning result has no flights.')
+        raise ValueError(tr('The saved planning result has no flights.'))
     # Adjacent flights share their seam waypoint, except orbit flights that
     # split between rings, oblique flights between passes and panorama flights
     # between points: the next one starts at its ring's, pass's or point's
@@ -305,7 +310,7 @@ def consume_result(request, result, *, require_supported=True,
     previous_end = None
     for index, flight in enumerate(flights):
         if not isinstance(flight, dict) or flight.get('index') != index:
-            raise ValueError('The saved flight list is invalid.')
+            raise ValueError(tr('The saved flight list is invalid.'))
         start = flight.get('route_start_waypoint_index')
         end = flight.get('route_end_waypoint_index')
         if (type(start) is not int or type(end) is not int or not 0 <= start <= end < len(points)
@@ -314,7 +319,7 @@ def consume_result(request, result, *, require_supported=True,
                              and ((orbit and 'ring_start' in (rows[start].get('roles') or ()))
                                   or (oblique and 'pass_start' in (rows[start].get('roles') or ()))
                                   or (panorama and 'point_start' in (rows[start].get('roles') or ())))))):
-            raise ValueError('The saved flight boundaries are invalid.')
+            raise ValueError(tr('The saved flight boundaries are invalid.'))
         actions = flight.get('actions')
         if not isinstance(actions, list) or any(
                 not isinstance(action, dict)
@@ -329,7 +334,7 @@ def consume_result(request, result, *, require_supported=True,
                     and (not _finite(action.get('pitch_deg'))
                          or not -180 <= action['pitch_deg'] <= 180))
                 for action in actions):
-            raise ValueError('The saved flight actions are invalid.')
+            raise ValueError(tr('The saved flight actions are invalid.'))
         flight_headings = headings[start:end + 1] if headings else None
         if flight_headings and all(value is None for value in flight_headings):
             flight_headings = None          # an oblique nadir pass faces along its lines
@@ -345,7 +350,7 @@ def consume_result(request, result, *, require_supported=True,
         })
         previous_end = end
     if consumed[0]['flight']['route_start_waypoint_index'] != 0 or previous_end != len(points) - 1:
-        raise ValueError('The saved flights do not cover the route.')
+        raise ValueError(tr('The saved flights do not cover the route.'))
     strips = route.get('strips')
     photo_actions = sum(action['type'] == 'take_photo'
                         for flight in consumed for action in flight['actions'])
@@ -355,7 +360,7 @@ def consume_result(request, result, *, require_supported=True,
             or statistics['strip_count'] != len(strips)
             or (capture['mode'] == 'full_auto'
                 and statistics['photo_count'] != photo_actions)):
-        raise ValueError('The saved planning statistics do not match its route.')
+        raise ValueError(tr('The saved planning statistics do not match its route.'))
     return consumed
 
 
@@ -369,12 +374,12 @@ def validate_mission_provenance(mission):
     oblique = settings.get('mapping_style') == 'oblique'
     panorama = settings.get('mapping_style') == 'panorama'
     if not isinstance(request, dict):
-        raise ValueError('The saved planning request is missing.')
+        raise ValueError(tr('The saved planning request is missing.'))
     if oblique and not _orbit_capable(result.get('engine_version'), OBLIQUE_MIN_ENGINE_VERSION):
-        raise ValueError('This saved oblique engine version is not supported.')
+        raise ValueError(tr('This saved oblique engine version is not supported.'))
     if panorama:
         if not _orbit_capable(result.get('engine_version'), PANORAMA_MIN_ENGINE_VERSION):
-            raise ValueError('This saved panorama engine version is not supported.')
+            raise ValueError(tr('This saved panorama engine version is not supported.'))
         expected = {
             'operation': 'plan_panorama',
             'mapping_style': 'panorama',
@@ -387,11 +392,11 @@ def validate_mission_provenance(mission):
             'terrain_follow': False,
         }
         if any(request.get(key) != value for key, value in expected.items()):
-            raise ValueError('The saved panorama request does not match the mission settings.')
+            raise ValueError(tr('The saved panorama request does not match the mission settings.'))
         if (request.get('capture') != {'mode': 'full_auto',
                                        'overlap_ratio': _ratio(settings.get('panorama_overlap', 30))}
                 or request.get('split') != {'max_waypoints_per_flight': settings.get('split_max_wp', 200)}):
-            raise ValueError('The saved panorama capture or split does not match the mission settings.')
+            raise ValueError(tr('The saved panorama capture or split does not match the mission settings.'))
         polygon = mission.get('polygon') or []
         layout = settings.get('panorama_layout', 'points')
         if layout == 'points':
@@ -400,7 +405,7 @@ def validate_mission_provenance(mission):
                          for point in points] if isinstance(points, list)
                         and all(isinstance(point, dict) for point in points) else None)
             if geometry != polygon or 'survey_area' in request:
-                raise ValueError('The saved panorama points do not match the mission geometry.')
+                raise ValueError(tr('The saved panorama points do not match the mission geometry.'))
         else:
             area = request.get('survey_area')
             exterior = area.get('exterior') if isinstance(area, dict) else None
@@ -411,10 +416,10 @@ def validate_mission_provenance(mission):
             if (geometry != polygon or 'points' in request
                     or (isinstance(area, dict) and (area.get('holes') or area.get('parts')))
                     or spacing != settings.get('panorama_spacing', 0)):
-                raise ValueError('The saved panorama area does not match the mission geometry.')
+                raise ValueError(tr('The saved panorama area does not match the mission geometry.'))
     elif settings.get('mapping_style') == 'orbit':
         if not _orbit_capable(result.get('engine_version')):
-            raise ValueError('This saved orbit engine version is not supported.')
+            raise ValueError(tr('This saved orbit engine version is not supported.'))
         rings = settings.get('orbit_rings') or [{
             'radius_m': settings.get('orbit_radius'),
             'altitude_m': settings.get('altitude'),
@@ -424,7 +429,7 @@ def validate_mission_provenance(mission):
         if (len(rings) > 1 or (isinstance(request_split, dict)
                               and request_split.get('enabled') is True)) and not _orbit_capable(
                 result.get('engine_version'), ORBIT_RINGS_MIN_ENGINE_VERSION):
-            raise ValueError('This saved orbit needs planning engine 1.3.0 or newer.')
+            raise ValueError(tr('This saved orbit needs planning engine 1.3.0 or newer.'))
         expected = {
             'operation': 'plan_orbit',
             'mapping_style': 'orbit',
@@ -437,20 +442,20 @@ def validate_mission_provenance(mission):
             'terrain_follow': False,
         }
         if any(request.get(key) != value for key, value in expected.items()):
-            raise ValueError('The saved orbit request does not match the mission settings.')
+            raise ValueError(tr('The saved orbit request does not match the mission settings.'))
         if len(rings) == 1:
             if (request.get('rings') is not None or any(
                     request.get(key) != value for key, value in rings[0].items())):
-                raise ValueError('The saved orbit rings do not match the mission settings.')
+                raise ValueError(tr('The saved orbit rings do not match the mission settings.'))
         elif (request.get('rings') != rings or any(
                 key in request for key in ('radius_m', 'altitude_m', 'gimbal_pitch_deg'))):
-            raise ValueError('The saved orbit rings do not match the mission settings.')
+            raise ValueError(tr('The saved orbit rings do not match the mission settings.'))
         capture = request.get('capture')
         full = settings.get('capture_mode') == 'full'
         if (not isinstance(capture, dict)
                 or capture.get('mode') != ('full_auto' if full else 'semi_auto')
                 or (full and capture.get('side_overlap_ratio') != _ratio(settings.get('side_overlap')))):
-            raise ValueError('The saved orbit capture does not match the mission settings.')
+            raise ValueError(tr('The saved orbit capture does not match the mission settings.'))
         split = request.get('split')
         enabled = settings.get('split_enabled', False)
         request_enabled = split.get('enabled') if isinstance(split, dict) else None
@@ -462,7 +467,7 @@ def validate_mission_provenance(mission):
                 or split.get('max_waypoints_per_flight') != settings.get('split_max_wp')
                 or (request_enabled and split.get('requested_flights') != settings.get('split_count'))
                 or (not request_enabled and 'requested_flights' in split)):
-            raise ValueError('The saved orbit split does not match the mission settings.')
+            raise ValueError(tr('The saved orbit split does not match the mission settings.'))
     else:
         expected = {
             'mapping_style': settings.get('mapping_style', '2d'),
@@ -479,45 +484,45 @@ def validate_mission_provenance(mission):
         }
         if oblique:
             if settings.get('terrain_follow') or settings.get('cross_hatch'):
-                raise ValueError('Oblique website missions do not support terrain or cross-hatch.')
+                raise ValueError(tr('Oblique website missions do not support terrain or cross-hatch.'))
             expected.pop('cross_hatch')
             expected.update(operation='plan_oblique',
                             pattern=settings.get('oblique_pattern'),
                             gimbal_pitch_deg=settings.get('oblique_pitch'),
                             include_nadir=settings.get('oblique_nadir'))
         if any(request.get(key) != value for key, value in expected.items()):
-            raise ValueError('The saved planning request does not match the mission settings.')
+            raise ValueError(tr('The saved planning request does not match the mission settings.'))
         capture = request.get('capture')
         expected_mode = 'full_auto' if settings.get('capture_mode') == 'full' else 'semi_auto'
         if not isinstance(capture, dict) or capture.get('mode') != expected_mode:
-            raise ValueError('The saved capture request does not match the mission settings.')
+            raise ValueError(tr('The saved capture request does not match the mission settings.'))
         if expected_mode == 'full_auto' and capture.get('front_overlap_ratio') != _ratio(settings.get('front_overlap')):
-            raise ValueError('The saved overlap request does not match the mission settings.')
+            raise ValueError(tr('The saved overlap request does not match the mission settings.'))
         split = request.get('split')
         enabled = settings.get('split_enabled')
         if (not isinstance(split, dict) or split.get('enabled') is not enabled
                 or split.get('max_waypoints_per_flight') != settings.get('split_max_wp')
                 or (enabled and split.get('requested_flights') != settings.get('split_count'))
                 or (not enabled and split.get('requested_flights') != 1)):
-            raise ValueError('The saved split request does not match the mission settings.')
+            raise ValueError(tr('The saved split request does not match the mission settings.'))
         direction = request.get('direction')
         automatic = bool(settings.get('auto_direction'))
         if (not isinstance(direction, dict)
                 or direction.get('mode') != ('automatic' if automatic else 'manual')
                 or (not automatic and direction.get('value_deg') != settings.get('direction'))):
-            raise ValueError('The saved direction request does not match the mission settings.')
+            raise ValueError(tr('The saved direction request does not match the mission settings.'))
         area = request.get('survey_area')
         exterior = area.get('exterior') if isinstance(area, dict) else None
         polygon = mission.get('polygon') or []
         request_polygon = ([[point.get('latitude_deg'), point.get('longitude_deg')]
                             for point in exterior] if isinstance(exterior, list) else None)
         if request_polygon != polygon:
-            raise ValueError('The saved planning area does not match the mission geometry.')
+            raise ValueError(tr('The saved planning area does not match the mission geometry.'))
     flights = consume_result(request, result, require_supported=False,
                              legacy_waypoints=mission.get('waypoints') or None)
     if settings.get('mapping_style') == 'orbit' and any(
             flight['headings'] is None for flight in flights):
-        raise ValueError('The saved orbit route is invalid.')
+        raise ValueError(tr('The saved orbit route is invalid.'))
     supported = (request.get('contract_version') in SUPPORTED_CONTRACT_VERSIONS
                  and result.get('contract_version') == request.get('contract_version')
                  and result.get('engine_version') in SUPPORTED_ENGINE_VERSIONS)
@@ -525,7 +530,7 @@ def validate_mission_provenance(mission):
     if supported and not results_match(
             {**plan(request, engine_version=replay_version), 'engine_version': result['engine_version']}, result):
         kind = 'orbit' if settings.get('mapping_style') == 'orbit' else 'planning'
-        raise ValueError('The saved %s result does not match its request.' % kind)
+        raise ValueError(tr('The saved {kind} result does not match its request.', kind=kind))
     return supported, flights
 
 
@@ -549,7 +554,7 @@ def _pitch_per_waypoint(actions, start, end):
     rotations = {action['waypoint_index']: float(action['pitch_deg'])
                  for action in actions if action['type'] == 'rotate_camera'}
     if start not in rotations:
-        raise ValueError('The saved flight does not set the camera at its start.')
+        raise ValueError(tr('The saved flight does not set the camera at its start.'))
     pitches, current = [], None
     for index in range(start, end + 1):
         current = rotations.get(index, current)
