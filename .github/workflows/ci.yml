@@ -39,7 +39,7 @@ jobs:
         run: python -m pyflakes $(git ls-files '*.py')
 
       - name: Translation catalogs
-        run: python tools/update_translations.py --check
+        run: python tools/update_translations.py --check --strict
 
       - name: Qt6 scoped-enum check
         run: python tools/check_qt6_enums.py

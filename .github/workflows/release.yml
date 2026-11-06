@@ -1,0 +1,49 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*-zh.*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to publish
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and publish plugin ZIP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref_name }}
+
+      - name: Build ZIP and verify in official QGIS runtime
+        shell: bash
+        run: |
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/tests_directory" \
+            --workdir /tests_directory \
+            --env QT_QPA_PLATFORM=offscreen \
+            qgis/qgis:3.44.14-noble \
+            sh -lc 'python3 -m pip install --disable-pip-version-check --no-cache-dir --target /tmp/flypath-deps pytest "pyproj>=3.7,<4" "shapely>=2.1,<3" &&
+              export PYTHONPATH="/tmp/flypath-deps${PYTHONPATH:+:$PYTHONPATH}" &&
+              python3 tools/build_plugin.py &&
+              python3 tests/test_qgis_package.py "$(ls -1t dist/FlyPath-*.zip | head -n 1)" &&
+              python3 tools/check_qgis_behavior.py &&
+              python3 tools/check_qgis_behavior.py --vault'
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/FlyPath-*.zip --clobber
+          else
+            gh release create "$TAG" dist/FlyPath-*.zip --generate-notes --title "$TAG"
+          fi

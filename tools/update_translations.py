@@ -3,6 +3,8 @@
 Usage:
     python tools/update_translations.py --lang zh_CN
     python tools/update_translations.py --check
+    python tools/update_translations.py --check --strict
+    python tools/update_translations.py --list-unfinished
     python tools/update_translations.py --compile
 
 The generated .ts files are normal Qt Linguist XML, so Weblate, Crowdin and
@@ -150,7 +152,18 @@ def _find_lrelease():
     return None
 
 
-def _check(sources, language):
+def _unfinished(sources, language):
+    path = _catalog_path(language)
+    existing = _read_ts(path)
+    pending = []
+    for source in sorted(set(sources), key=lambda value: (value.casefold(), value)):
+        text, kind = existing.get(source, ('', None))
+        if not text or kind == 'unfinished':
+            pending.append(source)
+    return path, pending
+
+
+def _check(sources, language, strict=False):
     problems = []
     path = _catalog_path(language)
     existing = _read_ts(path)
@@ -164,11 +177,20 @@ def _check(sources, language):
         problems.append('%s: %d obsolete source(s) in the catalog' % (path, len(extra)))
         for source in extra[:10]:
             problems.append('  - %s' % source)
-    for source, (text, _kind) in existing.items():
+    unfinished = []
+    for source, (text, kind) in existing.items():
         if text and _placeholders(text) != _placeholders(source):
             problems.append(
                 '%s: placeholder mismatch for %r' % (path, source)
             )
+        if strict and (not text or kind == 'unfinished'):
+            unfinished.append(source)
+    if unfinished:
+        problems.append('%s: %d unfinished translation(s)' % (path, len(unfinished)))
+        for source in sorted(unfinished)[:20]:
+            problems.append('  ? %s' % source)
+        if len(unfinished) > 20:
+            problems.append('  ...')
     return problems
 
 
@@ -192,9 +214,16 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--lang', action='append', help='language code, for example zh_CN')
     parser.add_argument('--check', action='store_true', help='fail if catalogs are out of date')
+    parser.add_argument('--strict', action='store_true',
+                        help='with --check, also fail on unfinished or empty translations')
+    parser.add_argument('--list-unfinished', action='store_true',
+                        help='list sources without a finished translation')
     parser.add_argument('--compile', action='store_true', help='run lrelease after updating')
     parser.add_argument('--compile-only', action='store_true', help='only run lrelease')
     args = parser.parse_args(argv)
+
+    if args.strict and not args.check:
+        parser.error('--strict requires --check')
 
     if args.compile_only:
         return _compile()
@@ -208,11 +237,25 @@ def main(argv=None):
 
     if args.check:
         for language in _languages(args.lang):
-            problems.extend(_check(sources, language))
+            problems.extend(_check(sources, language, strict=args.strict))
         if problems:
             print('\n'.join(problems), file=sys.stderr)
             return 1
         print('Translations are up to date.')
+        return 0
+
+    if args.list_unfinished:
+        if problems:
+            print('\n'.join(problems), file=sys.stderr)
+            return 1
+        for language in _languages(args.lang):
+            path, pending = _unfinished(sources, language)
+            if not pending:
+                print('%s: all messages are translated.' % path)
+                continue
+            print('%s: %d untranslated message(s)' % (path, len(pending)))
+            for source in pending:
+                print('  %s' % source)
         return 0
 
     if problems:

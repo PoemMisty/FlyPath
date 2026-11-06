@@ -32,12 +32,14 @@ Run checks from this repository:
 ```powershell
 python -m pyflakes $(git ls-files '*.py')
 python tools/check_qt6_enums.py
-python tools/update_translations.py --check
+python tools/update_translations.py --check --strict
 python tools/vendor_engine.py
 python -m pytest -q tests
 ```
 
 Build the plugin ZIP with `python tools/build_plugin.py`; it fetches the pinned engine and includes it in the ZIP. For development, run `python tools/vendor_engine.py` after cloning, then copy or link the repository into the QGIS plugin directory and enable FlyPath in QGIS. Fetching requires network access; the installed plugin works offline.
+
+When syncing the fork with an upstream release, follow `docs/fork-maintenance.md`. Keep the upstream `metadata.txt` version and use fork tags such as `v5.0.0-zh.1`.
 
 ## Conventions and safety
 

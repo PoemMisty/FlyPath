@@ -124,13 +124,17 @@ The source language is English. User-facing text goes through
 
 ```bash
 python tools/update_translations.py --lang zh_CN
-python tools/update_translations.py --check
+python tools/update_translations.py --list-unfinished
+python tools/update_translations.py --check --strict
 ```
 
 Edit the `.ts` file with Qt Linguist, Weblate or Crowdin, then mark finished
 entries as translated (remove `type="unfinished"`). `--compile` builds `.qm`
 files with `lrelease`; the plugin also reads `.ts` directly, so lrelease is
 optional for development. Commit both the `.ts` source and any `.qm` you build.
+CI runs `--check --strict`, so an unfinished or empty translation fails the
+build. See `docs/fork-maintenance.md` for syncing the fork with upstream
+releases.
 
 Do not translate stable data: drone and camera model names, WordPress/WPML and
 KMZ format terms, URLs, settings keys, or the English action labels used by the
